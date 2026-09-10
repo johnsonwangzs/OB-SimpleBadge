@@ -1,4 +1,4 @@
-import { Modal, PluginSettingTab, setIcon, type App } from "obsidian";
+import { Modal, PluginSettingTab, requireApiVersion, Setting, type App, type SettingDefinitionItem } from "obsidian";
 import { renderBadge } from "./badge";
 import { BadgeForm } from "./badge-form";
 import type { Badge, BadgePreset } from "./model";
@@ -24,72 +24,115 @@ export class PresetEditModal extends Modal {
 }
 
 export class SimpleBadgeSettingTab extends PluginSettingTab {
-  private unsubscribe: (() => void) | undefined;
-  private listEl: HTMLElement | undefined;
-  private statusEl: HTMLElement | undefined;
   private busy = false;
   private visible = false;
-  constructor(app: App, private readonly owner: SimpleBadgePlugin) { super(app, owner); }
-
-  // Use the imperative settings API to retain support for pre-1.13 Obsidian.
-  display(): void {
-    const strings = this.owner.strings;
-    this.unsubscribe?.();
-    this.visible = true;
-    this.containerEl.empty();
-    this.containerEl.addClass("simple-badge-settings");
-    this.containerEl.createEl("h2", { text: strings.presetBadges });
-    this.containerEl.createEl("p", { cls: "simple-badge-muted", text: strings.presetDescription });
-    const add = this.containerEl.createEl("button", { cls: "mod-cta", text: strings.addPreset, attr: { type: "button" } });
-    add.disabled = !!this.owner.loadError;
-    add.addEventListener("click", () => this.owner.openPresetEditor());
-    this.statusEl = this.containerEl.createDiv({ cls: "simple-badge-message", attr: { role: "status", "aria-live": "polite" } });
-    if (this.owner.loadError) { this.statusEl.addClass("is-error"); this.statusEl.setText(this.owner.loadError); }
-    this.listEl = this.containerEl.createDiv({ cls: "simple-badge-settings-list" });
-    this.unsubscribe = this.owner.presets.subscribe(() => this.renderPresets());
-    this.renderPresets();
+  private status = "";
+  private statusIsError = false;
+  constructor(app: App, private readonly owner: SimpleBadgePlugin) {
+    super(app, owner);
+    // Keep the search index current even while this tab is hidden.
+    owner.register(owner.presets.subscribe(() => this.refresh()));
   }
-  hide(): void { this.visible = false; this.unsubscribe?.(); this.unsubscribe = undefined; }
 
-  private renderPresets(): void {
+  // Obsidian 1.13+ renders and indexes these definitions instead of display().
+  getSettingDefinitions(): SettingDefinitionItem[] {
     const strings = this.owner.strings;
-    if (!this.visible || !this.listEl) return;
+    return [
+      {
+        type: "group", heading: strings.presetBadges,
+        items: [{
+          name: strings.addPreset, desc: strings.presetDescription, aliases: ["badge", "badges"],
+          render: setting => this.renderAdd(setting),
+        }],
+      },
+      {
+        type: "list", emptyState: strings.emptyPresetsForSettings,
+        items: this.owner.presets.presets.map(preset => ({
+          name: preset.text, desc: strings.colors[preset.color], aliases: [strings.presetBadges, "badge"],
+          render: setting => this.renderPreset(setting, preset),
+        })),
+      },
+      {
+        name: this.owner.loadError ?? this.status, searchable: false,
+        visible: () => !!(this.owner.loadError || this.status),
+        render: setting => this.renderStatus(setting),
+      },
+    ];
+  }
+
+  // Older Obsidian versions use the same row renderers through display().
+  display(): void {
+    this.visible = true;
+    this.renderLegacy();
+  }
+  hide(): void { this.visible = false; }
+
+  private renderLegacy(): void {
+    const strings = this.owner.strings;
+    this.containerEl.empty();
+    new Setting(this.containerEl).setName(strings.presetBadges).setHeading();
+    this.renderAdd(new Setting(this.containerEl).setName(strings.addPreset).setDesc(strings.presetDescription));
     const presets = this.owner.presets.presets;
-    this.listEl.empty();
-    if (!presets.length) this.listEl.createEl("p", { cls: "simple-badge-muted", text: strings.emptyPresetsForSettings });
-    presets.forEach((preset, index) => {
-      const row = this.listEl!.createDiv({ cls: "simple-badge-settings-row" });
-      renderBadge(row.createDiv({ cls: "simple-badge-preview" }), preset);
-      const controls = row.createDiv({ cls: "simple-badge-settings-actions" });
-      const up = controls.createEl("button", { cls: "clickable-icon", attr: { type: "button", "aria-label": strings.moveUp(preset.text) } });
-      setIcon(up, "arrow-up");
-      up.disabled = this.busy || index === 0;
-      up.addEventListener("click", () => { void this.runAction(() => this.owner.presets.move(preset.id, -1), strings.orderSaved); });
-      const down = controls.createEl("button", { cls: "clickable-icon", attr: { type: "button", "aria-label": strings.moveDown(preset.text) } });
-      setIcon(down, "arrow-down");
-      down.disabled = this.busy || index === presets.length - 1;
-      down.addEventListener("click", () => { void this.runAction(() => this.owner.presets.move(preset.id, 1), strings.orderSaved); });
-      const edit = controls.createEl("button", { text: strings.edit, attr: { type: "button", "aria-label": strings.editNamed(preset.text) } });
-      edit.disabled = this.busy;
-      edit.addEventListener("click", () => this.owner.openPresetEditor(preset));
-      const remove = controls.createEl("button", { text: strings.delete, attr: { type: "button", "aria-label": strings.deleteNamed(preset.text) } });
-      remove.disabled = this.busy;
-      remove.addEventListener("click", () => { void this.runAction(() => this.owner.presets.remove(preset.id), strings.presetDeleted); });
+    if (!presets.length) this.containerEl.createEl("p", { cls: "simple-badge-muted", text: strings.emptyPresetsForSettings });
+    for (const preset of presets) {
+      this.renderPreset(new Setting(this.containerEl).setName(preset.text).setDesc(strings.colors[preset.color]), preset);
+    }
+    if (this.owner.loadError || this.status) this.renderStatus(new Setting(this.containerEl).setName(this.owner.loadError ?? this.status));
+  }
+
+  private renderAdd(setting: Setting): void {
+    setting.addButton(button => button.setButtonText(this.owner.strings.addPreset).setCta()
+      .setDisabled(this.busy || !!this.owner.loadError).onClick(() => this.owner.openPresetEditor()));
+  }
+
+  private renderPreset(setting: Setting, preset: BadgePreset): void {
+    const strings = this.owner.strings;
+    const presets = this.owner.presets.presets;
+    const index = presets.findIndex(item => item.id === preset.id);
+    const disabled = this.busy || index < 0 || !!this.owner.loadError;
+    setting.nameEl.empty();
+    renderBadge(setting.nameEl, preset);
+    setting.addExtraButton(button => button.setIcon("arrow-up").setTooltip(strings.moveUp(preset.text))
+      .setDisabled(disabled || index === 0)
+      .onClick(() => { void this.runAction(() => this.owner.presets.move(preset.id, -1), strings.orderSaved); }));
+    setting.addExtraButton(button => button.setIcon("arrow-down").setTooltip(strings.moveDown(preset.text))
+      .setDisabled(disabled || index === presets.length - 1)
+      .onClick(() => { void this.runAction(() => this.owner.presets.move(preset.id, 1), strings.orderSaved); }));
+    setting.addButton(button => {
+      button.setButtonText(strings.edit).setDisabled(disabled).onClick(() => this.owner.openPresetEditor(preset));
+      button.buttonEl.setAttr("aria-label", strings.editNamed(preset.text));
     });
+    setting.addButton(button => {
+      button.setButtonText(strings.delete).setDisabled(disabled)
+        .onClick(() => { void this.runAction(() => this.owner.presets.remove(preset.id), strings.presetDeleted); });
+      button.buttonEl.setAttr("aria-label", strings.deleteNamed(preset.text));
+    });
+  }
+
+  private renderStatus(setting: Setting): void {
+    setting.setClass("simple-badge-message");
+    const isError = !!this.owner.loadError || this.statusIsError;
+    setting.settingEl.toggleClass("is-error", isError);
+    setting.settingEl.setAttr("role", isError ? "alert" : "status");
+    setting.settingEl.setAttr("aria-live", "polite");
+  }
+
+  private refresh(): void {
+    if (requireApiVersion("1.13.0")) this.update();
+    else if (this.visible) this.renderLegacy();
   }
 
   private async runAction(action: () => Promise<void>, success: string): Promise<void> {
     if (this.busy) return;
     this.busy = true;
-    this.renderPresets();
+    this.refresh();
     try {
       await action();
-      if (this.visible) { this.statusEl?.removeClass("is-error"); this.statusEl?.setText(success); }
+      this.statusIsError = false;
+      this.status = success;
     } catch (error) {
-      if (this.visible) {
-        this.statusEl?.addClass("is-error");
-        this.statusEl?.setText(error instanceof Error ? error.message : this.owner.strings.saveFailed);
-      }
-    } finally { this.busy = false; this.renderPresets(); }
+      this.statusIsError = true;
+      this.status = error instanceof Error ? error.message : this.owner.strings.saveFailed;
+    } finally { this.busy = false; this.refresh(); }
   }
 }

@@ -2,7 +2,7 @@
 
 English | [简体中文](README.zh-CN.md)
 
-Right-click in an Obsidian Markdown editor and choose **Insert Badge** to preview, create, and insert multiple text badges in the order you select them. Current version: **0.3.0**.
+Right-click in an Obsidian Markdown editor and choose **Insert Badge** to preview, create, and insert multiple text badges in the order you select them. Current version: **0.3.1**.
 
 ```html
 <span class="badge badge-red">Important</span> <span class="badge badge-green">Done</span>
@@ -40,6 +40,8 @@ Open Obsidian **Settings → Community plugins → Installed plugins → ⋮ nex
 
 The settings page lets you add, edit, delete, and move presets up or down. Every entry shows a rendered preview. Preset order controls how badges are displayed; insertion order always follows your selection order in the insertion dialog.
 
+On Obsidian 1.13.0 and later, settings search can find the add-preset action and individual presets by their text or color. Results update when presets change. Obsidian 1.8.7–1.12.x uses the standard settings page without search integration.
+
 On first use, the plugin provides four example presets in the interface language: Information (blue), Done (green), Note (purple), and Important (red) in English; 信息、完成、备注、重要 in Chinese. You can edit or delete all of them. Deliberately clearing the list does not restore the defaults. Existing saved presets are never translated automatically.
 
 Presets are stored in `.obsidian/plugins/simple-badge/data.json` in the current vault. If saving fails, an error is displayed and your input is retained so you can retry. If the configuration is invalid or uses an unsupported version, the plugin asks you to check the file instead of overwriting it with defaults.
@@ -59,23 +61,26 @@ Editing or deleting a preset does not change spans already inserted in notes or 
 
 ## Development and testing
 
-Requires Node.js 20+ and pnpm.
+Requires Node.js 20.19+, 22.13+, or 24+ and pnpm.
 
 ```sh
 pnpm install
+pnpm lint
 pnpm build
 pnpm test
 ```
 
 `pnpm dev` watches the source and rebuilds it. `pnpm typecheck` runs type checking separately. Watch mode does not automatically copy files to the vault or reload the plugin.
 
-The 17 automated tests cover selection order, deselection and reselection, selection snapshots, special characters, batch editor transactions, default and empty configurations, duplicates, preset creation/editing/deletion/reordering, reloading, concurrent saves, recovery from failed saves, language resolution, translated defaults and errors, and preservation of saved presets across languages.
+The 18 automated tests cover selection order, deselection and reselection, selection snapshots, special characters, batch editor transactions, default and empty configurations, duplicates, preset creation/editing/deletion/reordering, reloading, concurrent saves, recovery from failed saves, language resolution, translated defaults and errors, preservation of saved presets across languages, and rejection of malformed configuration entries without overwriting data. `pnpm lint` runs the official Obsidian ESLint recommended rules with zero warnings allowed.
 
 The following behaviors have also been verified in the Develop vault on Windows with Obsidian **1.13.7**: numbered selection, renumbering after deselection, mixed insertion of temporary and saved badges, HTML escaping, undo and redo of a complete batch, preset management in settings, preset persistence after re-enabling the plugin, a single context-menu entry after reloading, and preserving a selection while choosing a new insertion position after the note changes. Examples remain in `Simple Badge 示例.md` in that test vault.
 
 Version 0.3.0 was also checked with Obsidian set to English: the context menu, insertion dialog, selection count, success messages, settings page, and preset editor displayed English correctly. Inserting an English temporary badge together with an existing Chinese preset preserved selection order and escaped special characters; a single undo restored the original note. Switching back to Chinese restored the Chinese interface. The note and preset data files matched their original hashes after testing.
 
-The manifest declares a minimum Obsidian version of 1.1.1. Automatic language detection uses the public `getLanguage()` API introduced in Obsidian 1.8.7; versions without that API fall back to English. Older versions, other themes, and mobile have not been verified through actual UI testing; the plugin currently declares desktop-only support. Older embedded browsers that do not support `color-mix()` retain the base badge background.
+Version 0.3.1 was checked in Obsidian 1.13.7 for settings search, navigating to a result, preset creation, reordering, editing, and deletion. Renamed presets appeared in search immediately; deleted presets disappeared. The note and preset data files matched their original hashes after removing the test entry.
+
+The minimum supported Obsidian version is 1.8.7, matching the public `getLanguage()` API used for automatic language detection. Newer settings APIs are guarded with `requireApiVersion("1.13.0")`, with an imperative settings fallback for earlier supported versions. That older-version path, other themes, and mobile have not been verified through actual UI testing; the plugin currently declares desktop-only support. Older embedded browsers that do not support `color-mix()` retain the base badge background.
 
 ## Deployment and installation
 
@@ -98,7 +103,7 @@ pnpm run deploy "D:/path/to/vault"
 
 Enable **Simple Badge** in Obsidian under **Settings → Community plugins**. After updating, disable and re-enable the plugin to reload it.
 
-Alternatively, extract the three files from `simple-badge-0.3.0.zip` into `.obsidian/plugins/simple-badge/` in the target vault, then enable the plugin. Preserve the existing `data.json` when updating.
+Alternatively, extract the three files from `simple-badge-0.3.1.zip` into `.obsidian/plugins/simple-badge/` in the target vault, then enable the plugin. Preserve the existing `data.json` when updating.
 
 The deployment script copies only the three plugin files. It does not modify preset data, the enabled-plugin list, or other plugin settings.
 

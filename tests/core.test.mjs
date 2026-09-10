@@ -106,6 +106,25 @@ test("duplicate creation reuses a stable ID, same text in a different color is d
   assert.equal(store.presets.length, 2);
 });
 
+test("untrusted configuration entries are rejected without saving or coercing fields", async () => {
+  const entries = [null, 42, "badge", [], {}, { ...a, id: 7 }, { ...a, id: " " },
+    { id: "a", color: "red" }, { ...a, text: 7 }, { ...a, text: {} },
+    { id: "a", text: "A" }, { ...a, color: null }, { ...a, color: "invalid" }];
+  for (const entry of entries) {
+    let saves = 0;
+    const store = new PresetStore({
+      load: async () => ({ schemaVersion: 1, presets: [b, entry] }),
+      save: async () => { saves++; },
+    });
+    await assert.rejects(store.load());
+    assert.deepEqual(store.presets, []);
+    await assert.rejects(store.add(c));
+    assert.equal(saves, 0);
+  }
+  for (const value of [null, undefined, [], 123, "badge"]) assert.throws(() => normalizeBadge(value));
+  assert.deepEqual(decodeData({ schemaVersion: 1, presets: [a, b] }).presets, [a, b]);
+});
+
 test("edit, move, delete and empty list survive a new store instance", async () => {
   const { store, read } = await makeStore({ schemaVersion: 1, presets: [a, b, c] });
   await store.update(b.id, { text: "参考", color: "purple" });

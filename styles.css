@@ -178,30 +178,10 @@
     margin-top: 18px;
 }
 
-.simple-badge-settings-list { margin-top: 18px; }
-
-.simple-badge-settings-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 14px;
-    padding: 12px 0;
-    border-bottom: 1px solid var(--background-modifier-border);
-}
-
-.simple-badge-settings-actions {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    flex-shrink: 0;
-    gap: 6px;
-}
-
 .simple-badge-footer [hidden] { display: none; }
 
 @media (max-width: 620px) {
     .simple-badge-insert-main { grid-template-columns: minmax(0, 1fr); gap: 20px; }
-    .simple-badge-settings-row { flex-wrap: wrap; }
 }
 
 @media (pointer: coarse) {

@@ -18,10 +18,18 @@ export interface InsertSession {
   draft: BadgeDraft;
 }
 
-export function normalizeBadge(value: Badge, strings = getTranslations()): Badge {
-  if (typeof value.text !== "string" || !value.text.trim()) throw new Error(strings.requiredText);
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isBadgeColor(value: unknown): value is BadgeColor {
+  return BADGE_COLORS.some(color => color.id === value);
+}
+
+export function normalizeBadge(value: unknown, strings = getTranslations()): Badge {
+  if (!isRecord(value) || typeof value.text !== "string" || !value.text.trim()) throw new Error(strings.requiredText);
   if (/[\r\n]/.test(value.text)) throw new Error(strings.singleLine);
-  if (!BADGE_COLORS.some(color => color.id === value.color)) throw new Error(strings.invalidColor);
+  if (!isBadgeColor(value.color)) throw new Error(strings.invalidColor);
   return { text: value.text.trim(), color: value.color };
 }
 
@@ -44,16 +52,16 @@ export function defaultData(strings: Translations = getTranslations()): PresetDa
 
 export function decodeData(raw: unknown, strings = getTranslations()): PresetData {
   if (raw == null) return defaultData(strings);
-  if (typeof raw !== "object" || !("schemaVersion" in raw) || raw.schemaVersion !== 1
-    || !("presets" in raw) || !Array.isArray(raw.presets)) {
+  if (!isRecord(raw) || raw.schemaVersion !== 1 || !Array.isArray(raw.presets)) {
     throw new Error(strings.unsupportedConfig);
   }
   const presets: BadgePreset[] = [];
-  for (const entry of raw.presets) {
-    if (!entry || typeof entry !== "object" || typeof entry.id !== "string" || !entry.id.trim()) {
+  const entries: unknown[] = raw.presets;
+  for (const entry of entries) {
+    if (!isRecord(entry) || typeof entry.id !== "string" || !entry.id.trim()) {
       throw new Error(strings.invalidId);
     }
-    const badge = normalizeBadge(entry as Badge, strings);
+    const badge = normalizeBadge(entry, strings);
     if (presets.some(preset => preset.id === entry.id || sameBadge(preset, badge))) {
       throw new Error(strings.duplicateConfig);
     }

@@ -18,8 +18,7 @@ export default class SimpleBadgePlugin extends Plugin {
   private active = false;
 
   async onload(): Promise<void> {
-    // getLanguage was added in Obsidian 1.8.7; older versions use English.
-    this.strings = getTranslations(typeof getLanguage === "function" ? getLanguage() : "en");
+    this.strings = getTranslations(getLanguage());
     this.presets = new PresetStore({ load: () => this.loadData(), save: data => this.saveData(data) }, this.strings);
     try { await this.presets.load(); }
     catch (error) {
