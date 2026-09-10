@@ -1,12 +1,14 @@
-import { MarkdownView, Notice, Plugin, type Editor } from "obsidian";
+import { getLanguage, MarkdownView, Notice, Plugin, type Editor } from "obsidian";
 import { insertBadges } from "./badge";
 import { BadgeInsertModal } from "./insert-modal";
 import { PresetStore } from "./preset-store";
 import { PresetEditModal, SimpleBadgeSettingTab } from "./settings";
 import type { BadgePreset, InsertSession } from "./model";
+import { getTranslations } from "./i18n";
 
 export default class SimpleBadgePlugin extends Plugin {
   presets!: PresetStore;
+  strings = getTranslations();
   loadError: string | undefined;
   private revisions = new WeakMap<Editor, number>();
   private insertModal: BadgeInsertModal | undefined;
@@ -16,11 +18,13 @@ export default class SimpleBadgePlugin extends Plugin {
   private active = false;
 
   async onload(): Promise<void> {
-    this.presets = new PresetStore({ load: () => this.loadData(), save: data => this.saveData(data) });
+    // getLanguage was added in Obsidian 1.8.7; older versions use English.
+    this.strings = getTranslations(typeof getLanguage === "function" ? getLanguage() : "en");
+    this.presets = new PresetStore({ load: () => this.loadData(), save: data => this.saveData(data) }, this.strings);
     try { await this.presets.load(); }
     catch (error) {
-      this.loadError = error instanceof Error ? error.message : "无法读取预设配置，请检查 data.json 后重新启用插件。";
-      new Notice(`Simple Badge：${this.loadError}`);
+      this.loadError = error instanceof Error ? error.message : this.strings.loadFailed;
+      new Notice(`Simple Badge: ${this.loadError}`);
     }
     this.active = true;
     this.settingsTab = new SimpleBadgeSettingTab(this.app, this);
@@ -37,7 +41,7 @@ export default class SimpleBadgePlugin extends Plugin {
       const file = info.file;
       const position = { ...editor.getCursor("to") };
       const revision = this.revisions.get(editor) ?? 0;
-      menu.addItem(item => item.setTitle("插入 Badge").setIcon("tag").onClick(() => {
+      menu.addItem(item => item.setTitle(this.strings.insertBadge).setIcon("tag").onClick(() => {
         if (!this.active) return;
         this.insertModal?.close();
         const session = this.pendingSession;
@@ -49,7 +53,7 @@ export default class SimpleBadgePlugin extends Plugin {
           insert: badges => insertBadges(editor, position, badges),
           relocate: session => {
             this.pendingSession = session;
-            new Notice("本次选择已保留，请在新的位置右键选择“插入 Badge”。");
+            new Notice(this.strings.selectionPreserved);
           },
           close: () => { if (this.insertModal === modal) this.insertModal = undefined; },
         }, session);
@@ -61,8 +65,8 @@ export default class SimpleBadgePlugin extends Plugin {
 
   openPresetEditor(preset?: BadgePreset): void {
     if (!this.active || this.loadError) return;
-    const modal = new PresetEditModal(this.app, preset, async badge => {
-      if (!this.active) throw new Error("插件已停用，请重新启用后保存。");
+    const modal = new PresetEditModal(this.app, this.strings, preset, async badge => {
+      if (!this.active) throw new Error(this.strings.pluginDisabled);
       if (preset) await this.presets.update(preset.id, badge);
       else await this.presets.add(badge);
     }, () => this.editModals.delete(modal));

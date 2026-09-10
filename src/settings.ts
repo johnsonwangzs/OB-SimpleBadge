@@ -3,18 +3,19 @@ import { renderBadge } from "./badge";
 import { BadgeForm } from "./badge-form";
 import type { Badge, BadgePreset } from "./model";
 import type SimpleBadgePlugin from "./main";
+import type { Translations } from "./i18n";
 
 export class PresetEditModal extends Modal {
   private form: BadgeForm | undefined;
-  constructor(app: App, private readonly preset: BadgePreset | undefined,
+  constructor(app: App, private readonly strings: Translations, private readonly preset: BadgePreset | undefined,
     private readonly save: (badge: Badge) => Promise<void>, private readonly closed: () => void) { super(app); }
 
   onOpen(): void {
     this.modalEl.addClass("simple-badge-edit-modal");
-    this.titleEl.setText(this.preset ? "编辑预设 Badge" : "新增预设 Badge");
-    this.form = new BadgeForm(this.contentEl, {
+    this.titleEl.setText(this.preset ? this.strings.editPreset : this.strings.newPreset);
+    this.form = new BadgeForm(this.contentEl, this.strings, {
       initial: this.preset ? { ...this.preset, save: false } : undefined,
-      submitLabel: "保存预设",
+      submitLabel: this.strings.savePreset,
       onSubmit: async draft => { await this.save(draft); this.close(); },
     });
     this.form.focus();
@@ -32,13 +33,14 @@ export class SimpleBadgeSettingTab extends PluginSettingTab {
 
   // Use the imperative settings API to retain support for pre-1.13 Obsidian.
   display(): void {
+    const strings = this.owner.strings;
     this.unsubscribe?.();
     this.visible = true;
     this.containerEl.empty();
     this.containerEl.addClass("simple-badge-settings");
-    this.containerEl.createEl("h2", { text: "预设 Badge" });
-    this.containerEl.createEl("p", { cls: "simple-badge-muted", text: "管理右键插入窗口中的预设。列表顺序只影响展示，插入顺序以点选顺序为准。" });
-    const add = this.containerEl.createEl("button", { cls: "mod-cta", text: "新增预设", attr: { type: "button" } });
+    this.containerEl.createEl("h2", { text: strings.presetBadges });
+    this.containerEl.createEl("p", { cls: "simple-badge-muted", text: strings.presetDescription });
+    const add = this.containerEl.createEl("button", { cls: "mod-cta", text: strings.addPreset, attr: { type: "button" } });
     add.disabled = !!this.owner.loadError;
     add.addEventListener("click", () => this.owner.openPresetEditor());
     this.statusEl = this.containerEl.createDiv({ cls: "simple-badge-message", attr: { role: "status", "aria-live": "polite" } });
@@ -50,28 +52,29 @@ export class SimpleBadgeSettingTab extends PluginSettingTab {
   hide(): void { this.visible = false; this.unsubscribe?.(); this.unsubscribe = undefined; }
 
   private renderPresets(): void {
+    const strings = this.owner.strings;
     if (!this.visible || !this.listEl) return;
     const presets = this.owner.presets.presets;
     this.listEl.empty();
-    if (!presets.length) this.listEl.createEl("p", { cls: "simple-badge-muted", text: "暂无预设，点击“新增预设”创建第一个 Badge。" });
+    if (!presets.length) this.listEl.createEl("p", { cls: "simple-badge-muted", text: strings.emptyPresetsForSettings });
     presets.forEach((preset, index) => {
       const row = this.listEl!.createDiv({ cls: "simple-badge-settings-row" });
       renderBadge(row.createDiv({ cls: "simple-badge-preview" }), preset);
       const controls = row.createDiv({ cls: "simple-badge-settings-actions" });
-      const up = controls.createEl("button", { cls: "clickable-icon", attr: { type: "button", "aria-label": `上移 ${preset.text}` } });
+      const up = controls.createEl("button", { cls: "clickable-icon", attr: { type: "button", "aria-label": strings.moveUp(preset.text) } });
       setIcon(up, "arrow-up");
       up.disabled = this.busy || index === 0;
-      up.addEventListener("click", () => { void this.runAction(() => this.owner.presets.move(preset.id, -1), "展示顺序已保存。"); });
-      const down = controls.createEl("button", { cls: "clickable-icon", attr: { type: "button", "aria-label": `下移 ${preset.text}` } });
+      up.addEventListener("click", () => { void this.runAction(() => this.owner.presets.move(preset.id, -1), strings.orderSaved); });
+      const down = controls.createEl("button", { cls: "clickable-icon", attr: { type: "button", "aria-label": strings.moveDown(preset.text) } });
       setIcon(down, "arrow-down");
       down.disabled = this.busy || index === presets.length - 1;
-      down.addEventListener("click", () => { void this.runAction(() => this.owner.presets.move(preset.id, 1), "展示顺序已保存。"); });
-      const edit = controls.createEl("button", { text: "编辑", attr: { type: "button", "aria-label": `编辑 ${preset.text}` } });
+      down.addEventListener("click", () => { void this.runAction(() => this.owner.presets.move(preset.id, 1), strings.orderSaved); });
+      const edit = controls.createEl("button", { text: strings.edit, attr: { type: "button", "aria-label": strings.editNamed(preset.text) } });
       edit.disabled = this.busy;
       edit.addEventListener("click", () => this.owner.openPresetEditor(preset));
-      const remove = controls.createEl("button", { text: "删除", attr: { type: "button", "aria-label": `删除 ${preset.text}` } });
+      const remove = controls.createEl("button", { text: strings.delete, attr: { type: "button", "aria-label": strings.deleteNamed(preset.text) } });
       remove.disabled = this.busy;
-      remove.addEventListener("click", () => { void this.runAction(() => this.owner.presets.remove(preset.id), "预设已删除，笔记中已有的 Badge 不受影响。"); });
+      remove.addEventListener("click", () => { void this.runAction(() => this.owner.presets.remove(preset.id), strings.presetDeleted); });
     });
   }
 
@@ -85,7 +88,7 @@ export class SimpleBadgeSettingTab extends PluginSettingTab {
     } catch (error) {
       if (this.visible) {
         this.statusEl?.addClass("is-error");
-        this.statusEl?.setText(error instanceof Error ? error.message : "保存失败，请重试。");
+        this.statusEl?.setText(error instanceof Error ? error.message : this.owner.strings.saveFailed);
       }
     } finally { this.busy = false; this.renderPresets(); }
   }

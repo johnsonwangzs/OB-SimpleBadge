@@ -1,8 +1,10 @@
+import { getTranslations, type Translations } from "./i18n";
+
 export const BADGE_COLORS = [
-  { id: "blue", label: "蓝色" },
-  { id: "green", label: "绿色" },
-  { id: "purple", label: "紫色" },
-  { id: "red", label: "红色" },
+  { id: "blue" },
+  { id: "green" },
+  { id: "purple" },
+  { id: "red" },
 ] as const;
 
 export type BadgeColor = (typeof BADGE_COLORS)[number]["id"];
@@ -16,10 +18,10 @@ export interface InsertSession {
   draft: BadgeDraft;
 }
 
-export function normalizeBadge(value: Badge): Badge {
-  if (typeof value.text !== "string" || !value.text.trim()) throw new Error("请输入 Badge 文字。");
-  if (/[\r\n]/.test(value.text)) throw new Error("Badge 文字只能有一行。");
-  if (!BADGE_COLORS.some(color => color.id === value.color)) throw new Error("请选择有效的 Badge 颜色。");
+export function normalizeBadge(value: Badge, strings = getTranslations()): Badge {
+  if (typeof value.text !== "string" || !value.text.trim()) throw new Error(strings.requiredText);
+  if (/[\r\n]/.test(value.text)) throw new Error(strings.singleLine);
+  if (!BADGE_COLORS.some(color => color.id === value.color)) throw new Error(strings.invalidColor);
   return { text: value.text.trim(), color: value.color };
 }
 
@@ -31,29 +33,29 @@ export function createId(): string {
   return Array.from(crypto.getRandomValues(new Uint32Array(4)), part => part.toString(16).padStart(8, "0")).join("");
 }
 
-export function defaultData(): PresetData {
+export function defaultData(strings: Translations = getTranslations()): PresetData {
   return { schemaVersion: 1, presets: [
-    { id: "default-blue", color: "blue", text: "信息" },
-    { id: "default-green", color: "green", text: "完成" },
-    { id: "default-purple", color: "purple", text: "备注" },
-    { id: "default-red", color: "red", text: "重要" },
+    { id: "default-blue", color: "blue", text: strings.defaults.blue },
+    { id: "default-green", color: "green", text: strings.defaults.green },
+    { id: "default-purple", color: "purple", text: strings.defaults.purple },
+    { id: "default-red", color: "red", text: strings.defaults.red },
   ] };
 }
 
-export function decodeData(raw: unknown): PresetData {
-  if (raw == null) return defaultData();
+export function decodeData(raw: unknown, strings = getTranslations()): PresetData {
+  if (raw == null) return defaultData(strings);
   if (typeof raw !== "object" || !("schemaVersion" in raw) || raw.schemaVersion !== 1
     || !("presets" in raw) || !Array.isArray(raw.presets)) {
-    throw new Error("预设配置格式或版本不受支持，请检查 data.json 后重新启用插件。");
+    throw new Error(strings.unsupportedConfig);
   }
   const presets: BadgePreset[] = [];
   for (const entry of raw.presets) {
     if (!entry || typeof entry !== "object" || typeof entry.id !== "string" || !entry.id.trim()) {
-      throw new Error("预设配置包含无效的 ID。");
+      throw new Error(strings.invalidId);
     }
-    const badge = normalizeBadge(entry as Badge);
+    const badge = normalizeBadge(entry as Badge, strings);
     if (presets.some(preset => preset.id === entry.id || sameBadge(preset, badge))) {
-      throw new Error("预设配置包含重复的 Badge 或 ID。");
+      throw new Error(strings.duplicateConfig);
     }
     presets.push({ id: entry.id, ...badge });
   }

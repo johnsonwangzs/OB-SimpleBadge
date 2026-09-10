@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { OrderedBadges, decodeData, defaultData, normalizeBadge, serializeBadges } from "../src/model.ts";
 import { PresetStore } from "../src/preset-store.ts";
 import { insertBadges } from "../src/badge.ts";
+import { getTranslations } from "../src/i18n.ts";
 
 const a = { id: "a", text: "重要", color: "red" };
 const b = { id: "b", text: "信息", color: "blue" };
@@ -82,7 +83,7 @@ test("first launch gets defaults, deliberately empty presets stay empty", () => 
   assert.deepEqual(decodeData(null), defaultData());
   assert.deepEqual(decodeData(empty()), empty());
   const first = defaultData(); first.presets[0].text = "changed";
-  assert.equal(defaultData().presets[0].text, "信息");
+  assert.equal(defaultData().presets[0].text, "Information");
 });
 
 test("invalid or future configuration is rejected instead of silently overwritten", async () => {
@@ -158,4 +159,53 @@ test("a failed save leaves memory unchanged and does not poison subsequent saves
   unsubscribe();
   await store.add(c);
   assert.equal(notifications, 1);
+});
+
+test("language resolution supports Chinese locale variants and defaults other languages to English", () => {
+  for (const locale of ["zh", "zh-CN", "zh_TW", "zh-Hans", " ZH-hant-HK "]) {
+    assert.equal(getTranslations(locale).insertBadge, "插入 Badge");
+  }
+  for (const locale of [undefined, "", "en", "en-US", "fr", "ja", "unknown", "zhunknown"]) {
+    assert.equal(getTranslations(locale).insertBadge, "Insert Badge");
+  }
+});
+
+test("new vaults get translated default text with stable IDs and colors", async () => {
+  const stores = ["en", "zh"].map(locale => new PresetStore({ load: async () => null, save: async () => {} }, getTranslations(locale)));
+  await Promise.all(stores.map(store => store.load()));
+  assert.deepEqual(stores[0].presets.map(item => item.text), ["Information", "Done", "Note", "Important"]);
+  assert.deepEqual(stores[1].presets.map(item => item.text), ["信息", "完成", "备注", "重要"]);
+  assert.deepEqual(stores[0].presets.map(({ id, color }) => ({ id, color })), stores[1].presets.map(({ id, color }) => ({ id, color })));
+});
+
+test("switching UI language preserves saved badge text, IDs, order and deliberately empty lists", async () => {
+  const raw = defaultData(getTranslations("zh"));
+  raw.presets[0].text = "自定义 & <标记>";
+  const stores = ["en", "zh"].map(locale => new PresetStore({ load: async () => structuredClone(raw), save: async () => {} }, getTranslations(locale)));
+  await Promise.all(stores.map(store => store.load()));
+  for (const store of stores) {
+    assert.deepEqual(store.presets, raw.presets);
+    assert.deepEqual(decodeData(empty(), store.strings), empty());
+  }
+  assert.equal(serializeBadges(stores[0].presets), serializeBadges(stores[1].presets));
+});
+
+test("validation and preset errors use the same language as their UI", async () => {
+  for (const locale of ["en", "zh"]) {
+    const strings = getTranslations(locale);
+    for (const [badge, message] of [
+      [{ text: "", color: "blue" }, strings.requiredText],
+      [{ text: "A\nB", color: "blue" }, strings.singleLine],
+      [{ text: "A", color: "invalid" }, strings.invalidColor],
+    ]) assert.throws(() => normalizeBadge(badge, strings), { message });
+    assert.throws(() => decodeData({ schemaVersion: 2, presets: [] }, strings), { message: strings.unsupportedConfig });
+    assert.throws(() => decodeData({ schemaVersion: 1, presets: [{ ...a, id: "" }] }, strings), { message: strings.invalidId });
+    assert.throws(() => decodeData({ schemaVersion: 1, presets: [a, a] }, strings), { message: strings.duplicateConfig });
+    const store = new PresetStore({ load: async () => ({ schemaVersion: 1, presets: [a, b] }), save: async () => {} }, strings);
+    await assert.rejects(store.add(c), { message: strings.configNotLoaded });
+    await store.load();
+    await assert.rejects(store.update(a.id, b), { message: strings.duplicatePreset });
+    await assert.rejects(store.remove("missing"), { message: strings.missingPreset });
+    assert.deepEqual(store.presets, [a, b]);
+  }
 });

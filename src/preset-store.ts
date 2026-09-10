@@ -1,4 +1,5 @@
 import { createId, decodeData, normalizeBadge, sameBadge, type Badge, type BadgePreset, type PresetData } from "./model";
+import { getTranslations } from "./i18n";
 
 interface PresetStorage {
   load(): Promise<unknown>;
@@ -11,10 +12,10 @@ export class PresetStore {
   private tail: Promise<void> = Promise.resolve();
   private listeners = new Set<() => void>();
 
-  constructor(private readonly storage: PresetStorage) {}
+  constructor(private readonly storage: PresetStorage, readonly strings = getTranslations()) {}
 
   async load(): Promise<void> {
-    this.data = decodeData(await this.storage.load());
+    this.data = decodeData(await this.storage.load(), this.strings);
     this.loaded = true;
   }
 
@@ -27,7 +28,7 @@ export class PresetStore {
 
   add(badge: Badge): Promise<BadgePreset> {
     return this.mutate(draft => {
-      const value = normalizeBadge(badge);
+      const value = normalizeBadge(badge, this.strings);
       const existing = draft.presets.find(item => sameBadge(item, value));
       if (existing) return { ...existing };
       const preset = { id: createId(), ...value };
@@ -39,9 +40,9 @@ export class PresetStore {
   update(id: string, badge: Badge): Promise<void> {
     return this.mutate(draft => {
       const index = this.findIndex(draft, id);
-      const value = normalizeBadge(badge);
+      const value = normalizeBadge(badge, this.strings);
       if (draft.presets.some(item => item.id !== id && sameBadge(item, value))) {
-        throw new Error("已有相同文字和颜色的预设，请修改后再保存。");
+        throw new Error(this.strings.duplicatePreset);
       }
       draft.presets[index] = { id, ...value };
     });
@@ -62,14 +63,14 @@ export class PresetStore {
 
   private findIndex(data: PresetData, id: string): number {
     const index = data.presets.findIndex(item => item.id === id);
-    if (index < 0) throw new Error("该预设已不存在，请重新打开编辑窗口。");
+    if (index < 0) throw new Error(this.strings.missingPreset);
     return index;
   }
 
   private mutate<T>(change: (draft: PresetData) => T): Promise<T> {
     // Serialize writes so a slow save cannot overwrite a newer change.
     const operation = this.tail.then(async () => {
-      if (!this.loaded) throw new Error("预设配置尚未成功加载，暂时无法保存。");
+      if (!this.loaded) throw new Error(this.strings.configNotLoaded);
       const draft: PresetData = { schemaVersion: 1, presets: this.presets };
       const result = change(draft);
       await this.storage.save(draft);

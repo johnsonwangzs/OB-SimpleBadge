@@ -1,5 +1,6 @@
 import { renderBadge } from "./badge";
 import { BADGE_COLORS, normalizeBadge, type BadgeDraft } from "./model";
+import type { Translations } from "./i18n";
 
 interface BadgeFormOptions {
   initial?: BadgeDraft;
@@ -23,33 +24,33 @@ export class BadgeForm {
   private busy = false;
   private destroyed = false;
 
-  constructor(container: HTMLElement, private readonly options: BadgeFormOptions) {
+  constructor(container: HTMLElement, private readonly strings: Translations, private readonly options: BadgeFormOptions) {
     this.color = options.initial?.color ?? "blue";
     this.formEl = container.createEl("form", { cls: "simple-badge-form" });
     this.fields = this.formEl.createEl("fieldset");
-    const label = this.fields.createEl("label", { cls: "simple-badge-field", text: "文字" });
-    this.input = label.createEl("input", { type: "text", placeholder: "例如：待处理" });
+    const label = this.fields.createEl("label", { cls: "simple-badge-field", text: strings.text });
+    this.input = label.createEl("input", { type: "text", placeholder: strings.placeholder });
     this.input.value = options.initial?.text ?? "";
     this.input.required = true;
     this.input.autocomplete = "off";
     this.input.addEventListener("input", () => { this.status.empty(); this.refresh(); });
 
-    this.fields.createDiv({ cls: "simple-badge-field-label", text: "颜色" });
-    const colors = this.fields.createDiv({ cls: "simple-badge-colors", attr: { role: "group", "aria-label": "Badge 颜色" } });
+    this.fields.createDiv({ cls: "simple-badge-field-label", text: strings.color });
+    const colors = this.fields.createDiv({ cls: "simple-badge-colors", attr: { role: "group", "aria-label": strings.badgeColor } });
     for (const color of BADGE_COLORS) {
-      const button = colors.createEl("button", { text: color.label, attr: { type: "button" } });
+      const button = colors.createEl("button", { text: strings.colors[color.id], attr: { type: "button" } });
       button.addEventListener("click", () => { this.color = color.id; this.status.empty(); this.refresh(); });
       this.colorButtons.set(color.id, button);
     }
     const previewRow = this.fields.createDiv({ cls: "simple-badge-form-preview" });
-    previewRow.createSpan({ cls: "simple-badge-muted", text: "预览" });
+    previewRow.createSpan({ cls: "simple-badge-muted", text: strings.preview });
     this.preview = previewRow.createSpan({ cls: "simple-badge-preview" });
 
     if (options.allowSaveOption) {
       const saveLabel = this.fields.createEl("label", { cls: "simple-badge-save-option" });
       this.saveInput = saveLabel.createEl("input", { type: "checkbox" });
       this.saveInput.checked = options.initial?.save ?? false;
-      saveLabel.createSpan({ text: "同时保存为预设" });
+      saveLabel.createSpan({ text: strings.saveAsPreset });
       this.saveInput.addEventListener("change", () => this.refresh());
     }
     this.submitButton = this.fields.createEl("button", { attr: { type: "submit" } });
@@ -69,13 +70,13 @@ export class BadgeForm {
     for (const [color, button] of this.colorButtons) button.setAttr("aria-pressed", String(color === draft.color));
     this.fields.disabled = this.busy;
     this.submitButton.disabled = this.busy || !draft.text.trim();
-    this.submitButton.setText(this.busy ? "正在保存…" : draft.save ? "加入选择并保存预设" : this.options.submitLabel);
+    this.submitButton.setText(this.busy ? this.strings.saving : draft.save ? this.strings.addAndSave : this.options.submitLabel);
   }
 
   private async submit(): Promise<void> {
     if (this.busy || this.destroyed) return;
     try {
-      const draft = { ...normalizeBadge(this.draft), save: this.draft.save };
+      const draft = { ...normalizeBadge(this.draft, this.strings), save: this.draft.save };
       this.busy = true;
       this.status.empty();
       this.status.removeClass("is-error");
@@ -88,7 +89,7 @@ export class BadgeForm {
     } catch (error) {
       if (!this.destroyed) {
         this.status.addClass("is-error");
-        this.status.setText(error instanceof Error ? error.message : "保存失败，请重试。");
+        this.status.setText(error instanceof Error ? error.message : this.strings.saveFailed);
       }
     } finally {
       this.busy = false;

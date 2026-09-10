@@ -1,7 +1,7 @@
 import { Modal, type App } from "obsidian";
 import { renderBadge } from "./badge";
 import { BadgeForm } from "./badge-form";
-import { BADGE_COLORS, OrderedBadges, createId, sameBadge, type BadgePreset, type InsertSession } from "./model";
+import { OrderedBadges, createId, sameBadge, type BadgePreset, type InsertSession } from "./model";
 import type { PresetStore } from "./preset-store";
 
 interface InsertCallbacks {
@@ -34,38 +34,39 @@ export class BadgeInsertModal extends Modal {
   }
 
   onOpen(): void {
+    const strings = this.store.strings;
     this.opened = true;
     this.modalEl.addClass("simple-badge-modal");
-    this.titleEl.setText("插入 Badge");
+    this.titleEl.setText(strings.insertBadge);
     const main = this.contentEl.createDiv({ cls: "simple-badge-insert-main" });
     const presets = main.createDiv();
-    presets.createEl("h3", { text: "预设 Badge" });
+    presets.createEl("h3", { text: strings.presetBadges });
     this.listEl = presets.createDiv({ cls: "simple-badge-preset-list" });
     const create = main.createDiv();
-    create.createEl("h3", { text: "新建 Badge" });
+    create.createEl("h3", { text: strings.createBadge });
 
     const selection = this.contentEl.createDiv({ cls: "simple-badge-selection" });
     const selectionHeading = selection.createDiv({ cls: "simple-badge-selection-heading" });
-    selectionHeading.createSpan({ text: "插入顺序" });
+    selectionHeading.createSpan({ text: strings.insertionOrder });
     this.countEl = selectionHeading.createSpan({ cls: "simple-badge-muted", attr: { "aria-live": "polite" } });
     this.queueEl = selection.createDiv({ cls: "simple-badge-queue" });
     this.errorEl = this.contentEl.createDiv({ cls: "simple-badge-message is-error", attr: { role: "alert" } });
     const footer = this.contentEl.createDiv({ cls: "simple-badge-footer" });
-    this.relocateButton = footer.createEl("button", { text: "重新定位", attr: { type: "button" } });
+    this.relocateButton = footer.createEl("button", { text: strings.chooseNewPosition, attr: { type: "button" } });
     this.relocateButton.hidden = true;
     this.relocateButton.addEventListener("click", () => {
       this.callbacks.relocate({ presets: this.presets.map(item => ({ ...item })), selected: this.selected.values,
         draft: this.form?.draft ?? { text: "", color: "blue", save: false } });
       this.close();
     });
-    footer.createEl("button", { text: "取消", attr: { type: "button" } }).addEventListener("click", () => this.close());
-    this.insertButton = footer.createEl("button", { text: "插入选定 Badge", cls: "mod-cta", attr: { type: "button" } });
+    footer.createEl("button", { text: strings.cancel, attr: { type: "button" } }).addEventListener("click", () => this.close());
+    this.insertButton = footer.createEl("button", { text: strings.insertSelected, cls: "mod-cta", attr: { type: "button" } });
     this.insertButton.addEventListener("click", () => this.insert());
 
-    this.form = new BadgeForm(create, {
+    this.form = new BadgeForm(create, strings, {
       initial: this.session?.draft,
       allowSaveOption: true,
-      submitLabel: "加入本次选择",
+      submitLabel: strings.addToSelection,
       resetOnSuccess: true,
       onBusyChange: busy => { this.busy = busy; this.renderSelection(); },
       onSubmit: async draft => {
@@ -83,7 +84,7 @@ export class BadgeInsertModal extends Modal {
         }
         this.selected.add(preset);
         this.renderSelection();
-        return draft.save ? "已加入选择，并保存为预设。" : "已加入本次选择。";
+        return draft.save ? strings.addedAndSaved : strings.added;
       },
     });
     this.renderSelection();
@@ -100,16 +101,17 @@ export class BadgeInsertModal extends Modal {
   }
 
   private renderSelection(): void {
+    const strings = this.store.strings;
     this.listEl.empty();
     this.presetButtons.clear();
-    if (!this.presets.length) this.listEl.createDiv({ cls: "simple-badge-muted", text: "暂无预设，可以在右侧新建并保存。" });
+    if (!this.presets.length) this.listEl.createDiv({ cls: "simple-badge-muted", text: strings.emptyPresetsForInsert });
     for (const preset of this.presets) {
       const row = this.listEl.createDiv({ cls: "simple-badge-preset-row" });
       const index = this.selected.indexOf(preset.id);
-      const color = BADGE_COLORS.find(color => color.id === preset.color)?.label;
+      const color = strings.colors[preset.color];
       const button = row.createEl("button", { cls: "simple-badge-number", text: index < 0 ? "" : String(index + 1),
         attr: { type: "button", "aria-pressed": String(index >= 0), "aria-label":
-          `${index < 0 ? "选择" : "取消选择"} ${color} ${preset.text}${index < 0 ? "" : `，第 ${index + 1} 个`}` } });
+          index < 0 ? strings.selectBadge(color, preset.text) : strings.deselectBadge(color, preset.text, index + 1) } });
       button.disabled = this.busy;
       button.addEventListener("click", () => {
         this.selected.toggle(preset);
@@ -121,15 +123,15 @@ export class BadgeInsertModal extends Modal {
     }
 
     this.queueEl.empty();
-    this.countEl.setText(`已选 ${this.selected.size} 个`);
-    if (!this.selected.size) this.queueEl.createSpan({ cls: "simple-badge-muted", text: "尚未选择" });
+    this.countEl.setText(strings.selectionCount(this.selected.size));
+    if (!this.selected.size) this.queueEl.createSpan({ cls: "simple-badge-muted", text: strings.noSelection });
     this.selected.values.forEach((preset, index) => {
       const chip = this.queueEl.createEl("button", { cls: "simple-badge-chip", attr: {
-        type: "button", "aria-label": `移除第 ${index + 1} 个 Badge：${preset.text}` } });
+        type: "button", "aria-label": strings.removeSelected(index + 1, preset.text) } });
       chip.disabled = this.busy;
       chip.createSpan({ text: String(index + 1) });
       renderBadge(chip.createSpan({ cls: "simple-badge-preview" }), preset);
-      if (!this.presets.some(item => item.id === preset.id)) chip.createSpan({ cls: "simple-badge-muted", text: "本次" });
+      if (!this.presets.some(item => item.id === preset.id)) chip.createSpan({ cls: "simple-badge-muted", text: strings.temporary });
       chip.createSpan({ text: "×", attr: { "aria-hidden": "true" } });
       chip.addEventListener("click", () => {
         this.selected.remove(preset.id);
@@ -149,7 +151,7 @@ export class BadgeInsertModal extends Modal {
   private insert(): void {
     if (this.busy || !this.selected.size || !this.opened) return;
     if (!this.callbacks.isTargetValid()) {
-      this.errorEl.setText("原文或编辑位置已变化。点击“重新定位”，然后在新的位置右键打开插入窗口；本次选择会保留。");
+      this.errorEl.setText(this.store.strings.positionChanged);
       this.relocateButton.hidden = false;
       return;
     }
