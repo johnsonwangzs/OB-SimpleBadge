@@ -1,0 +1,209 @@
+.badge {
+    display: inline-block;
+    padding: 0.08em 0.42em;
+    border-radius: 4px;
+    font-size: 0.72em;
+    font-weight: 500;
+    line-height: 1.35;
+    border: 1px solid var(--background-modifier-border);
+    background: var(--background-secondary);
+    color: var(--text-normal);
+    vertical-align: middle;
+}
+
+.badge-blue {
+    color: var(--color-blue);
+    background: color-mix(in oklch, var(--color-blue) 15%, transparent);
+}
+
+.badge-green {
+    color: var(--color-green);
+    background: color-mix(in oklch, var(--color-green) 15%, transparent);
+}
+
+.badge-purple {
+    color: var(--color-purple);
+    background: color-mix(in oklch, var(--color-purple) 15%, transparent);
+}
+
+.badge-red {
+    color: var(--color-red);
+    background: color-mix(in oklch, var(--color-red) 15%, transparent);
+}
+
+.simple-badge-modal {
+    width: min(760px, 94vw);
+}
+
+.simple-badge-insert-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    gap: 28px;
+    padding-bottom: 20px;
+}
+
+.simple-badge-insert-main h3 {
+    margin: 0 0 14px;
+    font-size: var(--font-ui-medium);
+}
+
+.simple-badge-preset-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    align-content: start;
+}
+
+.simple-badge-preset-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    min-height: 44px;
+}
+
+.simple-badge-preview {
+    font-size: var(--font-text-size, 16px);
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.simple-badge-number {
+    flex: 0 0 28px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 50%;
+    box-shadow: none;
+    font-variant-numeric: tabular-nums;
+}
+
+.simple-badge-number[aria-pressed="true"] {
+    color: var(--text-on-accent);
+    background: var(--interactive-accent);
+    border-color: var(--interactive-accent);
+}
+
+.simple-badge-form fieldset {
+    min-width: 0;
+    border: 0;
+    padding: 0;
+    margin: 0;
+}
+
+.simple-badge-field {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.simple-badge-field input {
+    width: 100%;
+    min-width: 0;
+}
+
+.simple-badge-colors {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 6px 0 14px;
+}
+
+.simple-badge-colors button[aria-pressed="true"] {
+    color: var(--text-on-accent);
+    background: var(--interactive-accent);
+}
+
+.simple-badge-form-preview,
+.simple-badge-save-option {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin: 12px 0;
+}
+
+.simple-badge-form-status,
+.simple-badge-message {
+    margin-top: 10px;
+    font-size: var(--font-ui-small);
+    overflow-wrap: anywhere;
+}
+
+.simple-badge-form-status:empty,
+.simple-badge-message:empty {
+    display: none;
+}
+
+.simple-badge-form-status.is-error,
+.simple-badge-message.is-error {
+    color: var(--text-error);
+}
+
+.simple-badge-muted {
+    color: var(--text-muted);
+    font-size: var(--font-ui-small);
+}
+
+.simple-badge-selection {
+    border-top: 1px solid var(--background-modifier-border);
+    padding-top: 14px;
+}
+
+.simple-badge-selection-heading,
+.simple-badge-queue {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.simple-badge-chip {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    height: auto;
+    min-height: 32px;
+    max-width: 100%;
+    padding: 5px 8px;
+    white-space: normal;
+}
+
+.simple-badge-footer {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.simple-badge-settings-list { margin-top: 18px; }
+
+.simple-badge-settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.simple-badge-settings-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    gap: 6px;
+}
+
+.simple-badge-footer [hidden] { display: none; }
+
+@media (max-width: 620px) {
+    .simple-badge-insert-main { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+    .simple-badge-settings-row { flex-wrap: wrap; }
+}
+
+@media (pointer: coarse) {
+    .simple-badge-number { flex-basis: 44px; width: 44px; height: 44px; }
+}

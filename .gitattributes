@@ -1,0 +1,3 @@
+# Normalize detected text files to LF on commit and checkout.
+# Git leaves binary files unchanged.
+* text=auto eol=lf
