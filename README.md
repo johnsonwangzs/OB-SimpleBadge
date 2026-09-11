@@ -2,7 +2,7 @@
 
 English | [简体中文](README.zh-CN.md)
 
-Right-click in an Obsidian Markdown editor and choose **Insert Badge** to preview, create, and insert multiple text badges in the order you select them. Current version: **0.3.1**.
+Right-click in an Obsidian Markdown editor and choose **Insert Badge** to preview, create, and insert multiple text badges in the order you select them. Current version: **0.3.2**.
 
 ```html
 <span class="badge badge-red">Important</span> <span class="badge badge-green">Done</span>
@@ -50,7 +50,7 @@ Editing or deleting a preset does not change spans already inserted in notes or 
 
 ## Editor behavior
 
-- Supports the Markdown editor context menu in Source mode and Live Preview on desktop.
+- Supports the Markdown editor context menu in Source mode and Live Preview on desktop, including Canvas text cards. Double-click a Canvas text card to edit it, then right-click inside its text area and choose **Insert Badge**. The card's outer context menu and the canvas background menu do not contain this action.
 - Uses the primary cursor position captured when the context menu opens. If text is selected, the original text is preserved and badges are inserted at the end of the primary selection.
 - Adds one space between adjacent spans, without adding other spaces, line breaks, or placeholder text.
 - Places the cursor after the entire batch. A single undo or redo applies to the whole batch.
@@ -72,13 +72,15 @@ pnpm test
 
 `pnpm dev` watches the source and rebuilds it. `pnpm typecheck` runs type checking separately. Watch mode does not automatically copy files to the vault or reload the plugin.
 
-The 18 automated tests cover selection order, deselection and reselection, selection snapshots, special characters, batch editor transactions, default and empty configurations, duplicates, preset creation/editing/deletion/reordering, reloading, concurrent saves, recovery from failed saves, language resolution, translated defaults and errors, preservation of saved presets across languages, and rejection of malformed configuration entries without overwriting data. `pnpm lint` runs the official Obsidian ESLint recommended rules with zero warnings allowed.
+The 20 automated tests cover selection order, deselection and reselection, selection snapshots, special characters, batch editor transactions, default and empty configurations, duplicates, preset creation/editing/deletion/reordering, reloading, concurrent saves, recovery from failed saves, language resolution, translated defaults and errors, preservation of saved presets across languages, rejection of malformed configuration entries without overwriting data, Canvas and fileless editor insertion targets, and rejection of targets whose editor, file, or content has changed. `pnpm lint` runs the official Obsidian ESLint recommended rules with zero warnings allowed.
 
 The following behaviors have also been verified in the Develop vault on Windows with Obsidian **1.13.7**: numbered selection, renumbering after deselection, mixed insertion of temporary and saved badges, HTML escaping, undo and redo of a complete batch, preset management in settings, preset persistence after re-enabling the plugin, a single context-menu entry after reloading, and preserving a selection while choosing a new insertion position after the note changes. Examples remain in `Simple Badge 示例.md` in that test vault.
 
 Version 0.3.0 was also checked with Obsidian set to English: the context menu, insertion dialog, selection count, success messages, settings page, and preset editor displayed English correctly. Inserting an English temporary badge together with an existing Chinese preset preserved selection order and escaped special characters; a single undo restored the original note. Switching back to Chinese restored the Chinese interface. The note and preset data files matched their original hashes after testing.
 
 Version 0.3.1 was checked in Obsidian 1.13.7 for settings search, navigating to a result, preset creation, reordering, editing, and deletion. Renamed presets appeared in search immediately; deleted presets disappeared. The note and preset data files matched their original hashes after removing the test entry.
+
+Version 0.3.2 was checked in the Develop vault's `test-canvas.canvas` on Obsidian 1.13.7. The text-card editor menu opened the insertion dialog, and two selected presets were inserted in selection order with one space between spans. The badges rendered in the card and persisted to the Canvas file. A single undo restored the original empty card.
 
 The minimum supported Obsidian version is 1.8.7, matching the public `getLanguage()` API used for automatic language detection. Newer settings APIs are guarded with `requireApiVersion("1.13.0")`, with an imperative settings fallback for earlier supported versions. That older-version path, other themes, and mobile have not been verified through actual UI testing; the plugin currently declares desktop-only support. Older embedded browsers that do not support `color-mix()` retain the base badge background.
 
@@ -103,13 +105,14 @@ pnpm run deploy "D:/path/to/vault"
 
 Enable **Simple Badge** in Obsidian under **Settings → Community plugins**. After updating, disable and re-enable the plugin to reload it.
 
-Alternatively, extract the three files from `simple-badge-0.3.1.zip` into `.obsidian/plugins/simple-badge/` in the target vault, then enable the plugin. Preserve the existing `data.json` when updating.
+Alternatively, extract the three files from `simple-badge-0.3.2.zip` into `.obsidian/plugins/simple-badge/` in the target vault, then enable the plugin. Preserve the existing `data.json` when updating.
 
 The deployment script copies only the three plugin files. It does not modify preset data, the enabled-plugin list, or other plugin settings.
 
 ## Source layout
 
 - `src/main.ts`: Context-menu entry, editor position validation, and plugin lifecycle.
+- `src/editor-target.ts`: Captures the original editor and cursor and validates the insertion target for notes and embedded editors.
 - `src/i18n.ts`: English and Simplified Chinese translations and language resolution.
 - `src/insert-modal.ts`: Preset selection, badge creation, and batch insertion dialog.
 - `src/settings.ts`: Obsidian settings page and preset editor dialog.

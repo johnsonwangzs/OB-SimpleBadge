@@ -1,7 +1,7 @@
 {
   "id": "simple-badge",
   "name": "Simple Badge",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "minAppVersion": "1.8.7",
   "description": "Select, create, and manage colored badges, then insert them in your chosen order.",
   "author": "Meowdichlorian",

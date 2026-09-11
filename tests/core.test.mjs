@@ -4,6 +4,7 @@ import { OrderedBadges, decodeData, defaultData, normalizeBadge, serializeBadges
 import { PresetStore } from "../src/preset-store.ts";
 import { insertBadges } from "../src/badge.ts";
 import { getTranslations } from "../src/i18n.ts";
+import { captureEditorTarget } from "../src/editor-target.ts";
 
 const a = { id: "a", text: "重要", color: "red" };
 const b = { id: "b", text: "信息", color: "blue" };
@@ -15,6 +16,51 @@ const makeStore = async (raw = null) => {
   await store.load();
   return { store, read: () => structuredClone(persisted) };
 };
+
+test("Canvas and fileless editors retain their own insertion position and batch undo transaction", () => {
+  for (const file of [{ path: "test-canvas.canvas", extension: "canvas" }, null]) {
+    let text = "before after";
+    let cursor = { line: 0, ch: 7 };
+    const changes = [];
+    const editor = {
+      getValue: () => text,
+      getCursor: side => { assert.equal(side, "to"); return cursor; },
+      transaction: tx => { changes.push(tx); text = text.slice(0, tx.changes[0].from.ch) + tx.changes[0].text + text.slice(tx.changes[0].to.ch); },
+      focus: () => {},
+    };
+    const target = captureEditorTarget(editor, { file, editor }, () => true, () => 0);
+    cursor.ch = 0;
+    assert.equal(target.isValid(), true);
+    insertBadges(editor, target.position, [b, a]);
+    assert.equal(text, `before ${serializeBadges([b, a])}after`);
+    assert.equal(changes.length, 1);
+    assert.equal(target.isValid(), false);
+  }
+});
+
+test("an insertion target rejects switched cards, closed editors, and changed content", () => {
+  let text = "same text";
+  let revision = 0;
+  let available = true;
+  const editor = { getValue: () => text, getCursor: () => ({ line: 0, ch: 2 }) };
+  const info = { file: { path: "test-canvas.canvas" }, editor };
+  const target = captureEditorTarget(editor, info, () => available, () => revision);
+  assert.equal(target.isValid(), true);
+  info.editor = { ...editor };
+  assert.equal(target.isValid(), false);
+  info.editor = editor;
+  available = false;
+  assert.equal(target.isValid(), false);
+  available = true;
+  text = "changed without an editor-change event";
+  assert.equal(target.isValid(), false);
+  text = "same text";
+  revision++;
+  assert.equal(target.isValid(), false);
+  revision--;
+  info.file = { path: "another.canvas" };
+  assert.equal(target.isValid(), false);
+});
 
 test("selection follows click order, cancellation compacts, reselection appends", () => {
   const selected = new OrderedBadges();

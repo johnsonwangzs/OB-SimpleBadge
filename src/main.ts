@@ -5,6 +5,7 @@ import { PresetStore } from "./preset-store";
 import { PresetEditModal, SimpleBadgeSettingTab } from "./settings";
 import type { BadgePreset, InsertSession } from "./model";
 import { getTranslations } from "./i18n";
+import { captureEditorTarget } from "./editor-target";
 
 export default class SimpleBadgePlugin extends Plugin {
   presets!: PresetStore;
@@ -33,23 +34,25 @@ export default class SimpleBadgePlugin extends Plugin {
     }));
 
     this.registerEvent(this.app.workspace.on("editor-menu", (menu, editor, info) => {
-      if (!(info instanceof MarkdownView) || info.getMode() !== "source" || info.file?.extension !== "md") {
-        return;
-      }
+      const markdownView = info instanceof MarkdownView ? info : undefined;
+      if (markdownView && markdownView.getMode() !== "source") return;
 
-      const file = info.file;
-      const position = { ...editor.getCursor("to") };
-      const revision = this.revisions.get(editor) ?? 0;
+      const leaf = this.app.workspace.getMostRecentLeaf();
+      const hostView = leaf?.view;
+      const target = captureEditorTarget(editor, info, () => this.active && (
+        markdownView
+          ? markdownView.getMode() === "source" && markdownView.containerEl.isConnected
+          : !!hostView && leaf?.view === hostView && hostView.containerEl.isConnected
+            && this.app.workspace.activeEditor?.editor === editor
+      ), () => this.revisions.get(editor) ?? 0);
       menu.addItem(item => item.setTitle(this.strings.insertBadge).setIcon("tag").onClick(() => {
         if (!this.active) return;
         this.insertModal?.close();
         const session = this.pendingSession;
         this.pendingSession = undefined;
         const modal = new BadgeInsertModal(this.app, this.presets, {
-          isTargetValid: () => this.active && info.file === file && info.editor === editor
-            && info.getMode() === "source" && info.containerEl.isConnected
-            && (this.revisions.get(editor) ?? 0) === revision,
-          insert: badges => insertBadges(editor, position, badges),
+          isTargetValid: () => target.isValid(),
+          insert: badges => insertBadges(editor, target.position, badges),
           relocate: session => {
             this.pendingSession = session;
             new Notice(this.strings.selectionPreserved);
