@@ -2,17 +2,38 @@
 
 English | [简体中文](README.zh-CN.md)
 
-Right-click in an Obsidian Markdown editor and choose **Insert Badge** to preview, create, and insert multiple text badges in the order you select them. Current version: **0.3.2**.
+Right-click in an Obsidian Markdown editor and choose **Insert Badge** to preview, create, and insert multiple text badges in the order you select them. Current version: **0.4.0**.
 
 ```html
 <span class="badge badge-red">Important</span> <span class="badge badge-green">Done</span>
 ```
 
-The plugin includes blue, green, purple, and red styles with fixed sizing, rounded corners, and other appearance settings. No separate CSS snippet is required.
+Choose from eight theme colors or pick any custom HEX color. Sizing, rounded corners, borders, and the 15% tinted background remain fixed. No separate CSS snippet is required.
 
 The interface follows Obsidian's language: Chinese language settings use Simplified Chinese, and all other languages use English. This includes menus, dialogs, settings, color names, status messages, and accessibility labels.
 
 To use the English interface, choose **English** under **Settings → General → Language**, then restart Obsidian when prompted. Saved preset text is preserved when you switch languages. This guide includes the corresponding Chinese labels for plugin controls.
+
+![Demo](assets/4.png)
+
+## Choose a color
+
+The same color selector is available when creating a badge in the insertion dialog and when adding or editing a preset in settings.
+
+- **Theme colors (主题色)**: red, orange, yellow, green, cyan, blue, purple, and pink. Swatches show the actual theme colors, and a checkmark identifies the selection. These colors adapt to your Obsidian theme.
+- **Custom (自定义)**: click the color swatch to open the native picker, or type a HEX color. The picker, input, and badge preview stay in sync. A custom color keeps its exact value across themes.
+- Accepts `#RRGGBB` and `#RGB`, ignoring case and surrounding whitespace. Values are saved in lowercase six-digit form, so `#ABC` and `#aabbcc` represent the same color. Alpha values and other CSS color expressions are not accepted.
+- While a HEX value is incomplete or invalid, the preview retains the last valid color and saving or adding that draft is disabled. Leaving the field shows an inline error. Your typed value is not expanded until you leave the field, so you can enter all six digits normally.
+
+Theme colors keep the existing class-only HTML. Custom badges include their color in a CSS variable, so the value travels with the span when copied between notes:
+
+```html
+<span class="badge badge-custom" style="--simple-badge-color: #e67e22;">Important</span>
+```
+
+The plugin stylesheet supplies the shared appearance for both formats.
+
+![Color Selector](assets/5.png)
 
 ## Insert multiple badges
 
@@ -24,6 +45,8 @@ To use the English interface, choose **English** under **Settings → General �
 
 A fresh insertion session starts with no badges selected. Clicking Cancel or pressing Esc closes the dialog without inserting text.
 
+![Insert Badge](assets/2.png)
+
 ## Create a badge while inserting
 
 Enter text and choose a color on the right side of the dialog. The preview updates immediately.
@@ -33,6 +56,8 @@ Enter text and choose a color on the right side of the dialog. The preview updat
 - Saving takes effect immediately. Canceling the insertion dialog afterward does not undo a preset that has already been saved.
 - Text cannot be empty, and leading and trailing whitespace is trimmed. Text is treated as plain text; `&`, `<`, and `>` are automatically escaped in the generated HTML.
 - Badges with identical text and color reuse an existing entry and are not added to the same selection more than once. Badges with the same text but different colors can be saved separately.
+
+![Create Badge](assets/1.png)
 
 ## Manage presets
 
@@ -46,7 +71,11 @@ On first use, the plugin provides four example presets in the interface language
 
 Presets are stored in `.obsidian/plugins/simple-badge/data.json` in the current vault. If saving fails, an error is displayed and your input is retained so you can retry. If the configuration is invalid or uses an unsupported version, the plugin asks you to check the file instead of overwriting it with defaults.
 
+Version 0.4.0 reads both version 1 and version 2 preset data. Existing IDs, text, colors, and order are preserved; the next successful preset save writes version 2. Loading alone does not rewrite the file. Version 0.3.x cannot read version 2 data, so keep a backup of `data.json` if you intend to downgrade.
+
 Editing or deleting a preset does not change spans already inserted in notes or silently change selections in an insertion dialog that is already open.
+
+![Manage Presets](assets/0.png)
 
 ## Editor behavior
 
@@ -57,7 +86,9 @@ Editing or deleting a preset does not change spans already inserted in notes or 
 - If the note changes after the dialog opens, or the original editor is no longer valid, attempting to insert prompts you to **Choose a new position (重新定位)**. Click that button, then right-click at a new position to reopen the insertion dialog with your selection and draft preserved.
 - The saved insertion session is held only in memory. Canceling the reopened dialog, disabling the plugin, or exiting Obsidian ends that session.
 - Reading view renders the badges. Editing modes follow Obsidian's native inline HTML behavior.
-- Disabling the plugin leaves the HTML in your notes. To retain the styling independently, copy the `.badge` rule and the four color rules at the beginning of `styles.css` into a CSS snippet and enable it.
+- Disabling the plugin leaves the HTML in your notes. To retain the styling independently, copy the `.badge` rule, eight theme color rules, and `.badge-custom` rule at the beginning of `styles.css` into a CSS snippet and enable it.
+
+![Editor Behavior](assets/3.png)
 
 ## Development and testing
 
@@ -72,7 +103,7 @@ pnpm test
 
 `pnpm dev` watches the source and rebuilds it. `pnpm typecheck` runs type checking separately. Watch mode does not automatically copy files to the vault or reload the plugin.
 
-The 20 automated tests cover selection order, deselection and reselection, selection snapshots, special characters, batch editor transactions, default and empty configurations, duplicates, preset creation/editing/deletion/reordering, reloading, concurrent saves, recovery from failed saves, language resolution, translated defaults and errors, preservation of saved presets across languages, rejection of malformed configuration entries without overwriting data, Canvas and fileless editor insertion targets, and rejection of targets whose editor, file, or content has changed. `pnpm lint` runs the official Obsidian ESLint recommended rules with zero warnings allowed.
+The 27 automated tests cover selection order and snapshots, HTML escaping, batch editor transactions, preset management, concurrent saves and failure recovery, language handling, malformed configuration rejection, and Canvas insertion targets. Color tests cover HEX normalization and invalid input, all eight translated theme colors, mixed HTML output, safe DOM previews, equivalent-color duplicates, version 1 migration, and version 2 save failures. `pnpm lint` runs the official Obsidian ESLint recommended rules with zero warnings allowed.
 
 The following behaviors have also been verified in the Develop vault on Windows with Obsidian **1.13.7**: numbered selection, renumbering after deselection, mixed insertion of temporary and saved badges, HTML escaping, undo and redo of a complete batch, preset management in settings, preset persistence after re-enabling the plugin, a single context-menu entry after reloading, and preserving a selection while choosing a new insertion position after the note changes. Examples remain in `Simple Badge 示例.md` in that test vault.
 
@@ -82,7 +113,9 @@ Version 0.3.1 was checked in Obsidian 1.13.7 for settings search, navigating to 
 
 Version 0.3.2 was checked in the Develop vault's `test-canvas.canvas` on Obsidian 1.13.7. The text-card editor menu opened the insertion dialog, and two selected presets were inserted in selection order with one space between spans. The badges rendered in the card and persisted to the Canvas file. A single undo restored the original empty card.
 
-The minimum supported Obsidian version is 1.8.7, matching the public `getLanguage()` API used for automatic language detection. Newer settings APIs are guarded with `requireApiVersion("1.13.0")`, with an imperative settings fallback for earlier supported versions. That older-version path, other themes, and mobile have not been verified through actual UI testing; the plugin currently declares desktop-only support. Older embedded browsers that do not support `color-mix()` retain the base badge background.
+Version 0.4.0 was checked on Obsidian 1.13.7 for native color picking (including updates while the picker stays open), incremental HEX entry, invalid input, shorthand normalization, creating and editing custom presets, and restoring them after re-enabling the plugin. Mixed custom and theme badges rendered in Markdown Live Preview, Reading view, and Canvas cards. Canvas was also checked in light and dark modes. Batch undo restored both test files to their original hashes.
+
+The minimum supported Obsidian version is 1.8.7, matching the public `getLanguage()` API used for automatic language detection. The color picker does not require a newer API. Newer settings APIs are guarded with `requireApiVersion("1.13.0")`, with an imperative settings fallback for earlier supported versions. That older-version path, third-party themes, and mobile have not been verified through actual UI testing; the plugin currently declares desktop-only support. Older embedded browsers that do not support `color-mix()` retain the base badge background.
 
 ## Deployment and installation
 
@@ -105,7 +138,7 @@ pnpm run deploy "D:/path/to/vault"
 
 Enable **Simple Badge** in Obsidian under **Settings → Community plugins**. After updating, disable and re-enable the plugin to reload it.
 
-Alternatively, extract the three files from `simple-badge-0.3.2.zip` into `.obsidian/plugins/simple-badge/` in the target vault, then enable the plugin. Preserve the existing `data.json` when updating.
+Alternatively, extract the three files from `simple-badge-0.4.0.zip` into `.obsidian/plugins/simple-badge/` in the target vault, then enable the plugin. Preserve the existing `data.json` when updating.
 
 The deployment script copies only the three plugin files. It does not modify preset data, the enabled-plugin list, or other plugin settings.
 
@@ -117,6 +150,7 @@ The deployment script copies only the three plugin files. It does not modify pre
 - `src/insert-modal.ts`: Preset selection, badge creation, and batch insertion dialog.
 - `src/settings.ts`: Obsidian settings page and preset editor dialog.
 - `src/badge-form.ts`: Shared text, color, and preview form used by both dialogs.
+- `src/color-picker.ts`: Shared theme swatches, native color picker, and HEX input with validation.
 - `src/model.ts`: Preset types, configuration validation, selection order, and HTML serialization.
 - `src/preset-store.ts`: Preset operations and serialized persistence.
 - `src/badge.ts`: Safe DOM previews and batch editor transactions.

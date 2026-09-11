@@ -31,6 +31,31 @@
     background: color-mix(in oklch, var(--color-red) 15%, transparent);
 }
 
+.badge-orange {
+    color: var(--color-orange);
+    background: color-mix(in oklch, var(--color-orange) 15%, transparent);
+}
+
+.badge-yellow {
+    color: var(--color-yellow);
+    background: color-mix(in oklch, var(--color-yellow) 15%, transparent);
+}
+
+.badge-cyan {
+    color: var(--color-cyan);
+    background: color-mix(in oklch, var(--color-cyan) 15%, transparent);
+}
+
+.badge-pink {
+    color: var(--color-pink);
+    background: color-mix(in oklch, var(--color-pink) 15%, transparent);
+}
+
+.badge-custom {
+    color: var(--simple-badge-color, var(--text-normal));
+    background: color-mix(in oklch, var(--simple-badge-color, var(--text-normal)) 15%, transparent);
+}
+
 .simple-badge-modal {
     width: min(760px, 94vw);
 }
@@ -104,15 +129,76 @@
 }
 
 .simple-badge-colors {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 6px;
     margin: 6px 0 14px;
 }
 
-.simple-badge-colors button[aria-pressed="true"] {
+.simple-badge-color-modes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 6px 0 12px;
+}
+
+.simple-badge-color-modes button[aria-pressed="true"] {
     color: var(--text-on-accent);
     background: var(--interactive-accent);
+}
+
+.simple-badge-colors button {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    height: auto;
+    min-height: 34px;
+    padding: 6px 4px;
+    font-size: var(--font-ui-smaller);
+    white-space: normal;
+}
+
+.simple-badge-colors button[aria-pressed="true"] {
+    box-shadow: inset 0 0 0 2px var(--interactive-accent);
+}
+
+.simple-badge-color-swatch {
+    flex: 0 0 12px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.simple-badge-color-check { visibility: hidden; }
+.simple-badge-colors button[aria-pressed="true"] .simple-badge-color-check { visibility: visible; }
+.simple-badge-color-picker [hidden] { display: none; }
+
+.simple-badge-custom-color {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.simple-badge-native-color { display: flex; }
+.simple-badge-native-color input[type="color"] { width: 38px; height: 34px; cursor: pointer; }
+.simple-badge-hex-field { flex: 1; min-width: 0; }
+.simple-badge-hex-field input { width: 100%; min-width: 0; font-family: var(--font-monospace); }
+.simple-badge-hex-field input[aria-invalid="true"] { border-color: var(--text-error); }
+.simple-badge-color-error { color: var(--text-error); font-size: var(--font-ui-small); margin-top: 6px; }
+.simple-badge-color-error:empty { display: none; }
+
+.simple-badge-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
 }
 
 .simple-badge-form-preview,

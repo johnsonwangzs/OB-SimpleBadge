@@ -1,7 +1,7 @@
 import { Modal, type App } from "obsidian";
 import { renderBadge } from "./badge";
 import { BadgeForm } from "./badge-form";
-import { OrderedBadges, createId, sameBadge, type BadgePreset, type InsertSession } from "./model";
+import { OrderedBadges, colorLabel, createId, sameBadge, type BadgePreset, type InsertSession } from "./model";
 import type { PresetStore } from "./preset-store";
 
 interface InsertCallbacks {
@@ -108,7 +108,7 @@ export class BadgeInsertModal extends Modal {
     for (const preset of this.presets) {
       const row = this.listEl.createDiv({ cls: "simple-badge-preset-row" });
       const index = this.selected.indexOf(preset.id);
-      const color = strings.colors[preset.color];
+      const color = colorLabel(preset.color, strings);
       const button = row.createEl("button", { cls: "simple-badge-number", text: index < 0 ? "" : String(index + 1),
         attr: { type: "button", "aria-pressed": String(index >= 0), "aria-label":
           index < 0 ? strings.selectBadge(color, preset.text) : strings.deselectBadge(color, preset.text, index + 1) } });

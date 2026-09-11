@@ -1,8 +1,11 @@
 import type { Editor, EditorPosition } from "obsidian";
-import { serializeBadges, type Badge } from "./model";
+import { isThemeColor, normalizeBadge, serializeBadges, type Badge } from "./model";
 
 export function renderBadge(container: HTMLElement, badge: Badge): HTMLSpanElement {
-  return container.createSpan({ cls: `badge badge-${badge.color}`, text: badge.text });
+  const { text, color } = normalizeBadge(badge);
+  const span = container.createSpan({ cls: `badge badge-${isThemeColor(color) ? color : "custom"}`, text });
+  if (!isThemeColor(color)) span.style.setProperty("--simple-badge-color", color);
+  return span;
 }
 
 export function insertBadges(editor: Editor, position: EditorPosition, badges: readonly Badge[]): void {

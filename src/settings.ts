@@ -1,7 +1,7 @@
 import { Modal, PluginSettingTab, requireApiVersion, Setting, type App, type SettingDefinitionItem } from "obsidian";
 import { renderBadge } from "./badge";
 import { BadgeForm } from "./badge-form";
-import type { Badge, BadgePreset } from "./model";
+import { colorLabel, type Badge, type BadgePreset } from "./model";
 import type SimpleBadgePlugin from "./main";
 import type { Translations } from "./i18n";
 
@@ -48,7 +48,7 @@ export class SimpleBadgeSettingTab extends PluginSettingTab {
       {
         type: "list", emptyState: strings.emptyPresetsForSettings,
         items: this.owner.presets.presets.map(preset => ({
-          name: preset.text, desc: strings.colors[preset.color], aliases: [strings.presetBadges, "badge"],
+          name: preset.text, desc: colorLabel(preset.color, strings), aliases: [strings.presetBadges, "badge"],
           render: setting => this.renderPreset(setting, preset),
         })),
       },
@@ -75,7 +75,7 @@ export class SimpleBadgeSettingTab extends PluginSettingTab {
     const presets = this.owner.presets.presets;
     if (!presets.length) this.containerEl.createEl("p", { cls: "simple-badge-muted", text: strings.emptyPresetsForSettings });
     for (const preset of presets) {
-      this.renderPreset(new Setting(this.containerEl).setName(preset.text).setDesc(strings.colors[preset.color]), preset);
+      this.renderPreset(new Setting(this.containerEl).setName(preset.text).setDesc(colorLabel(preset.color, strings)), preset);
     }
     if (this.owner.loadError || this.status) this.renderStatus(new Setting(this.containerEl).setName(this.owner.loadError ?? this.status));
   }

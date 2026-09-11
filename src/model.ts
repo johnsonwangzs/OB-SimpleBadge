@@ -1,17 +1,23 @@
 import { getTranslations, type Translations } from "./i18n";
 
 export const BADGE_COLORS = [
-  { id: "blue" },
-  { id: "green" },
-  { id: "purple" },
   { id: "red" },
+  { id: "orange" },
+  { id: "yellow" },
+  { id: "green" },
+  { id: "cyan" },
+  { id: "blue" },
+  { id: "purple" },
+  { id: "pink" },
 ] as const;
 
-export type BadgeColor = (typeof BADGE_COLORS)[number]["id"];
+export type ThemeBadgeColor = (typeof BADGE_COLORS)[number]["id"];
+export type CustomBadgeColor = `#${string}`;
+export type BadgeColor = ThemeBadgeColor | CustomBadgeColor;
 export interface Badge { text: string; color: BadgeColor }
 export interface BadgePreset extends Badge { id: string }
-export interface PresetData { schemaVersion: 1; presets: BadgePreset[] }
-export interface BadgeDraft extends Badge { save: boolean }
+export interface PresetData { schemaVersion: 2; presets: BadgePreset[] }
+export interface BadgeDraft extends Badge { save: boolean; customColorInput?: string }
 export interface InsertSession {
   presets: BadgePreset[];
   selected: BadgePreset[];
@@ -22,19 +28,37 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isBadgeColor(value: unknown): value is BadgeColor {
+export function isThemeColor(value: unknown): value is ThemeBadgeColor {
   return BADGE_COLORS.some(color => color.id === value);
+}
+
+export function normalizeHexColor(value: unknown): CustomBadgeColor | undefined {
+  if (typeof value !== "string") return undefined;
+  const hex = value.trim().toLowerCase();
+  if (/^#[\da-f]{6}$/.test(hex)) return hex as CustomBadgeColor;
+  if (/^#[\da-f]{3}$/.test(hex)) return `#${Array.from(hex.slice(1), digit => digit + digit).join("")}`;
+  return undefined;
+}
+
+export function normalizeColor(value: unknown): BadgeColor | undefined {
+  return isThemeColor(value) ? value : normalizeHexColor(value);
+}
+
+export function colorLabel(color: BadgeColor, strings: Translations): string {
+  return isThemeColor(color) ? strings.colors[color] : color;
 }
 
 export function normalizeBadge(value: unknown, strings = getTranslations()): Badge {
   if (!isRecord(value) || typeof value.text !== "string" || !value.text.trim()) throw new Error(strings.requiredText);
   if (/[\r\n]/.test(value.text)) throw new Error(strings.singleLine);
-  if (!isBadgeColor(value.color)) throw new Error(strings.invalidColor);
-  return { text: value.text.trim(), color: value.color };
+  const color = normalizeColor(value.color);
+  if (!color) throw new Error(strings.invalidColor);
+  return { text: value.text.trim(), color };
 }
 
 export function sameBadge(a: Badge, b: Badge): boolean {
-  return a.text === b.text && a.color === b.color;
+  const color = normalizeColor(a.color);
+  return a.text === b.text && color !== undefined && color === normalizeColor(b.color);
 }
 
 export function createId(): string {
@@ -42,7 +66,7 @@ export function createId(): string {
 }
 
 export function defaultData(strings: Translations = getTranslations()): PresetData {
-  return { schemaVersion: 1, presets: [
+  return { schemaVersion: 2, presets: [
     { id: "default-blue", color: "blue", text: strings.defaults.blue },
     { id: "default-green", color: "green", text: strings.defaults.green },
     { id: "default-purple", color: "purple", text: strings.defaults.purple },
@@ -52,7 +76,7 @@ export function defaultData(strings: Translations = getTranslations()): PresetDa
 
 export function decodeData(raw: unknown, strings = getTranslations()): PresetData {
   if (raw == null) return defaultData(strings);
-  if (!isRecord(raw) || raw.schemaVersion !== 1 || !Array.isArray(raw.presets)) {
+  if (!isRecord(raw) || (raw.schemaVersion !== 1 && raw.schemaVersion !== 2) || !Array.isArray(raw.presets)) {
     throw new Error(strings.unsupportedConfig);
   }
   const presets: BadgePreset[] = [];
@@ -67,7 +91,7 @@ export function decodeData(raw: unknown, strings = getTranslations()): PresetDat
     }
     presets.push({ id: entry.id, ...badge });
   }
-  return { schemaVersion: 1, presets };
+  return { schemaVersion: 2, presets };
 }
 
 // Selections are snapshots: later preset edits cannot silently change this batch.
@@ -102,6 +126,7 @@ export function serializeBadges(items: readonly Badge[]): string {
   return items.map(item => {
     const { text, color } = normalizeBadge(item);
     const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    return `<span class="badge badge-${color}">${escaped}</span>`;
+    if (isThemeColor(color)) return `<span class="badge badge-${color}">${escaped}</span>`;
+    return `<span class="badge badge-custom" style="--simple-badge-color: ${color};">${escaped}</span>`;
   }).join(" ");
 }

@@ -1,21 +1,120 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { OrderedBadges, decodeData, defaultData, normalizeBadge, serializeBadges } from "../src/model.ts";
+import { BADGE_COLORS, OrderedBadges, colorLabel, decodeData, defaultData, normalizeBadge, normalizeHexColor, sameBadge, serializeBadges } from "../src/model.ts";
 import { PresetStore } from "../src/preset-store.ts";
-import { insertBadges } from "../src/badge.ts";
+import { insertBadges, renderBadge } from "../src/badge.ts";
 import { getTranslations } from "../src/i18n.ts";
 import { captureEditorTarget } from "../src/editor-target.ts";
 
 const a = { id: "a", text: "重要", color: "red" };
 const b = { id: "b", text: "信息", color: "blue" };
 const c = { id: "c", text: "完成", color: "green" };
-const empty = () => ({ schemaVersion: 1, presets: [] });
+const empty = () => ({ schemaVersion: 2, presets: [] });
 const makeStore = async (raw = null) => {
   let persisted = structuredClone(raw);
   const store = new PresetStore({ load: async () => persisted, save: async data => { persisted = structuredClone(data); } });
   await store.load();
   return { store, read: () => structuredClone(persisted) };
 };
+
+test("HEX input normalizes shorthand, case and surrounding whitespace without accepting CSS", () => {
+  for (const [input, output] of [["#ABC", "#aabbcc"], [" #E67E22 ", "#e67e22"], ["#000", "#000000"], ["#FFFfff", "#ffffff"]]) {
+    assert.equal(normalizeHexColor(input), output);
+    assert.deepEqual(normalizeBadge({ text: " Custom ", color: input }), { text: "Custom", color: output });
+  }
+  for (const input of [null, undefined, 123, {}, "", "#", "#12", "#1234", "#12345", "#12345678", "#gg0000", "123456",
+    "rgb(0, 0, 0)", "var(--color-red)", "#abcdef; color: red", '#abcdef\" onclick=\"bad']) {
+    assert.equal(normalizeHexColor(input), undefined);
+    assert.throws(() => serializeBadges([{ text: "Invalid", color: input }]));
+  }
+});
+
+test("all eight theme colors have translated names and keep class-only HTML", () => {
+  assert.deepEqual(BADGE_COLORS.map(color => color.id), ["red", "orange", "yellow", "green", "cyan", "blue", "purple", "pink"]);
+  for (const { id } of BADGE_COLORS) {
+    assert.equal(serializeBadges([{ text: "Theme", color: id }]), `<span class="badge badge-${id}">Theme</span>`);
+    for (const language of ["en", "zh"]) {
+      const strings = getTranslations(language);
+      assert.ok(colorLabel(id, strings));
+      assert.equal(colorLabel("#e67e22", strings), "#e67e22");
+    }
+  }
+});
+
+test("custom colors travel in HTML with escaped text, mixed selection order and one batch transaction", () => {
+  const custom = { id: "custom", text: ' A & <b>"custom"</b> 🐱 ', color: "#ABC" };
+  const selected = new OrderedBadges([custom, a, { id: "new", text: "Cyan", color: "cyan" }]);
+  const expected = '<span class="badge badge-custom" style="--simple-badge-color: #aabbcc;">A &amp; &lt;b&gt;"custom"&lt;/b&gt; 🐱</span> <span class="badge badge-red">重要</span> <span class="badge badge-cyan">Cyan</span>';
+  assert.equal(serializeBadges(selected.values), expected);
+  const transactions = [];
+  insertBadges({ transaction: tx => transactions.push(tx), focus: () => {} }, { line: 2, ch: 3 }, selected.values);
+  assert.equal(transactions.length, 1);
+  assert.deepEqual(transactions[0].changes, [{ from: { line: 2, ch: 3 }, to: { line: 2, ch: 3 }, text: expected }]);
+});
+
+test("DOM previews receive only normalized colors and plain text, matching Markdown output", () => {
+  const creations = [];
+  const properties = [];
+  const container = { createSpan: options => {
+    creations.push(options);
+    return { style: { setProperty: (...args) => properties.push(args) } };
+  } };
+  renderBadge(container, { text: "<b>Text</b>", color: "#ABC" });
+  renderBadge(container, { text: "Theme", color: "orange" });
+  assert.deepEqual(creations, [{ cls: "badge badge-custom", text: "<b>Text</b>" }, { cls: "badge badge-orange", text: "Theme" }]);
+  assert.deepEqual(properties, [["--simple-badge-color", "#aabbcc"]]);
+  assert.throws(() => renderBadge(container, { text: "Invalid", color: "#abcdef; display:none" }));
+  assert.equal(creations.length, 2);
+});
+
+test("version 1 migrates on the next successful save, keeping IDs, order and empty lists", async () => {
+  const raw = { schemaVersion: 1, presets: [c, a, b] };
+  const { store, read } = await makeStore(raw);
+  assert.deepEqual(read(), raw);
+  assert.deepEqual(store.presets, raw.presets);
+  assert.deepEqual(decodeData({ schemaVersion: 1, presets: [] }), empty());
+  await store.update(a.id, { text: a.text, color: "#E67E22" });
+  assert.deepEqual(read(), { schemaVersion: 2, presets: [c, { ...a, color: "#e67e22" }, b] });
+  const { store: reopened } = await makeStore(read());
+  assert.deepEqual(reopened.presets, store.presets);
+  await reopened.update(a.id, { text: a.text, color: "pink" });
+  assert.equal(reopened.presets[1].color, "pink");
+  assert.equal(raw.schemaVersion, 1);
+  assert.deepEqual(raw.presets, [c, a, b]);
+});
+
+test("equivalent HEX colors reuse IDs and cannot create duplicate presets or selections", async () => {
+  const { store, read } = await makeStore(empty());
+  const first = await store.add({ text: "Custom", color: "#ABC" });
+  const second = await store.add({ text: " Custom ", color: "#aabbcc" });
+  assert.equal(first.id, second.id);
+  assert.equal(first.color, "#aabbcc");
+  assert.equal(sameBadge({ ...first, color: "#ABC" }, second), true);
+  const selected = new OrderedBadges([{ ...first, id: "temporary", color: "#ABC" }, a]);
+  selected.add(second);
+  assert.deepEqual(selected.values, [second, a]);
+  const another = await store.add({ text: "Another", color: "blue" });
+  await assert.rejects(store.update(another.id, { text: "Custom", color: "#AaBbCc" }));
+  assert.equal(read().presets.length, 2);
+  assert.throws(() => decodeData({ schemaVersion: 2, presets: [first, { ...first, id: "other", color: "#ABC" }] }));
+});
+
+test("failed version 2 saves preserve the old configuration and allow retry", async () => {
+  let persisted = { schemaVersion: 1, presets: [a] };
+  let fail = true;
+  const store = new PresetStore({ load: async () => persisted, save: async data => {
+    if (fail) throw new Error("Disk unavailable");
+    persisted = structuredClone(data);
+  } });
+  await store.load();
+  await assert.rejects(store.add({ text: "Custom", color: "#ABC" }));
+  assert.deepEqual(persisted, { schemaVersion: 1, presets: [a] });
+  assert.deepEqual(store.presets, [a]);
+  fail = false;
+  await store.add({ text: "Custom", color: "#ABC" });
+  assert.equal(persisted.schemaVersion, 2);
+  assert.equal(persisted.presets[1].color, "#aabbcc");
+});
 
 test("Canvas and fileless editors retain their own insertion position and batch undo transaction", () => {
   for (const file of [{ path: "test-canvas.canvas", extension: "canvas" }, null]) {
@@ -133,7 +232,7 @@ test("first launch gets defaults, deliberately empty presets stay empty", () => 
 });
 
 test("invalid or future configuration is rejected instead of silently overwritten", async () => {
-  for (const raw of [{}, { schemaVersion: 2, presets: [] }, { schemaVersion: 1, presets: [a, a] },
+  for (const raw of [{}, { schemaVersion: 3, presets: [] }, { schemaVersion: 1, presets: [a, a] },
     { schemaVersion: 1, presets: [a, { ...a, id: "different" }] }, { schemaVersion: 1, presets: [{ ...a, text: "" }] }]) {
     let saves = 0;
     const store = new PresetStore({ load: async () => raw, save: async () => { saves++; } });
@@ -263,7 +362,7 @@ test("validation and preset errors use the same language as their UI", async () 
       [{ text: "A\nB", color: "blue" }, strings.singleLine],
       [{ text: "A", color: "invalid" }, strings.invalidColor],
     ]) assert.throws(() => normalizeBadge(badge, strings), { message });
-    assert.throws(() => decodeData({ schemaVersion: 2, presets: [] }, strings), { message: strings.unsupportedConfig });
+    assert.throws(() => decodeData({ schemaVersion: 3, presets: [] }, strings), { message: strings.unsupportedConfig });
     assert.throws(() => decodeData({ schemaVersion: 1, presets: [{ ...a, id: "" }] }, strings), { message: strings.invalidId });
     assert.throws(() => decodeData({ schemaVersion: 1, presets: [a, a] }, strings), { message: strings.duplicateConfig });
     const store = new PresetStore({ load: async () => ({ schemaVersion: 1, presets: [a, b] }), save: async () => {} }, strings);

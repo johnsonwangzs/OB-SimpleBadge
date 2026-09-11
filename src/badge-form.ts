@@ -1,5 +1,6 @@
 import { renderBadge } from "./badge";
-import { BADGE_COLORS, normalizeBadge, type BadgeDraft } from "./model";
+import { normalizeBadge, type BadgeDraft } from "./model";
+import { BadgeColorPicker } from "./color-picker";
 import type { Translations } from "./i18n";
 
 interface BadgeFormOptions {
@@ -19,13 +20,11 @@ export class BadgeForm {
   private readonly preview: HTMLElement;
   private readonly submitButton: HTMLButtonElement;
   private readonly status: HTMLElement;
-  private readonly colorButtons = new Map<string, HTMLButtonElement>();
-  private color: BadgeDraft["color"];
+  private readonly colorPicker: BadgeColorPicker;
   private busy = false;
   private destroyed = false;
 
   constructor(container: HTMLElement, private readonly strings: Translations, private readonly options: BadgeFormOptions) {
-    this.color = options.initial?.color ?? "blue";
     this.formEl = container.createEl("form", { cls: "simple-badge-form" });
     this.fields = this.formEl.createEl("fieldset");
     const label = this.fields.createEl("label", { cls: "simple-badge-field", text: strings.text });
@@ -36,12 +35,8 @@ export class BadgeForm {
     this.input.addEventListener("input", () => { this.status.empty(); this.refresh(); });
 
     this.fields.createDiv({ cls: "simple-badge-field-label", text: strings.color });
-    const colors = this.fields.createDiv({ cls: "simple-badge-colors", attr: { role: "group", "aria-label": strings.badgeColor } });
-    for (const color of BADGE_COLORS) {
-      const button = colors.createEl("button", { text: strings.colors[color.id], attr: { type: "button" } });
-      button.addEventListener("click", () => { this.color = color.id; this.status.empty(); this.refresh(); });
-      this.colorButtons.set(color.id, button);
-    }
+    this.colorPicker = new BadgeColorPicker(this.fields, strings, options.initial?.color ?? "blue",
+      () => { this.status.empty(); this.refresh(); }, options.initial?.customColorInput);
     const previewRow = this.fields.createDiv({ cls: "simple-badge-form-preview" });
     previewRow.createSpan({ cls: "simple-badge-muted", text: strings.preview });
     this.preview = previewRow.createSpan({ cls: "simple-badge-preview" });
@@ -59,7 +54,10 @@ export class BadgeForm {
     this.refresh();
   }
 
-  get draft(): BadgeDraft { return { text: this.input.value, color: this.color, save: this.saveInput?.checked ?? false }; }
+  get draft(): BadgeDraft {
+    return { text: this.input.value, color: this.colorPicker.value, save: this.saveInput?.checked ?? false,
+      customColorInput: this.colorPicker.customInput };
+  }
   focus(): void { this.input.focus(); }
   destroy(): void { this.destroyed = true; }
 
@@ -67,14 +65,13 @@ export class BadgeForm {
     const draft = this.draft;
     this.preview.empty();
     renderBadge(this.preview, { text: draft.text.trim() || "Badge", color: draft.color });
-    for (const [color, button] of this.colorButtons) button.setAttr("aria-pressed", String(color === draft.color));
     this.fields.disabled = this.busy;
-    this.submitButton.disabled = this.busy || !draft.text.trim();
+    this.submitButton.disabled = this.busy || !draft.text.trim() || !this.colorPicker.isValid;
     this.submitButton.setText(this.busy ? this.strings.saving : draft.save ? this.strings.addAndSave : this.options.submitLabel);
   }
 
   private async submit(): Promise<void> {
-    if (this.busy || this.destroyed) return;
+    if (this.busy || this.destroyed || !this.colorPicker.validate()) return;
     try {
       const draft = { ...normalizeBadge(this.draft, this.strings), save: this.draft.save };
       this.busy = true;

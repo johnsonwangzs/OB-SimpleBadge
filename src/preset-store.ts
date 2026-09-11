@@ -7,7 +7,7 @@ interface PresetStorage {
 }
 
 export class PresetStore {
-  private data: PresetData = { schemaVersion: 1, presets: [] };
+  private data: PresetData = { schemaVersion: 2, presets: [] };
   private loaded = false;
   private tail: Promise<void> = Promise.resolve();
   private listeners = new Set<() => void>();
@@ -71,7 +71,7 @@ export class PresetStore {
     // Serialize writes so a slow save cannot overwrite a newer change.
     const operation = this.tail.then(async () => {
       if (!this.loaded) throw new Error(this.strings.configNotLoaded);
-      const draft: PresetData = { schemaVersion: 1, presets: this.presets };
+      const draft: PresetData = { schemaVersion: 2, presets: this.presets };
       const result = change(draft);
       await this.storage.save(draft);
       this.data = draft;
