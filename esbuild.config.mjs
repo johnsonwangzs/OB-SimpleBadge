@@ -1,4 +1,5 @@
 import * as esbuild from "esbuild";
+import { readFileSync } from "node:fs";
 
 const watch = process.argv.includes("--watch");
 const options = {
@@ -12,7 +13,7 @@ const options = {
   sourcemap: watch ? "inline" : false,
   treeShaking: true,
   logLevel: "info",
-  banner: { js: "/* Simple Badge — generated from src/main.ts. */" },
+  banner: { js: `/* Simple Badge — generated from src/main.ts.\n\n${readFileSync(new URL("./THIRD-PARTY-NOTICES.txt", import.meta.url), "utf8")}\n*/` },
 };
 
 if (watch) {

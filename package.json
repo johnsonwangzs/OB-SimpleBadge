@@ -1,6 +1,6 @@
 {
   "name": "simple-badge",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "description": "Insert simple colored HTML badges from the Obsidian editor context menu.",
   "main": "main.js",
@@ -19,5 +19,8 @@
     "eslint-plugin-obsidianmd": "^0.4.2",
     "obsidian": "^1.13.0",
     "typescript": "^5.9.0"
+  },
+  "dependencies": {
+    "entities": "8.1.0"
   }
 }

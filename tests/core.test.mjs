@@ -1,4 +1,5 @@
 import test from "node:test";
+import "./import.test.mjs";
 import assert from "node:assert/strict";
 import { BADGE_COLORS, OrderedBadges, colorLabel, decodeData, defaultData, normalizeBadge, normalizeHexColor, sameBadge, serializeBadges } from "../src/model.ts";
 import { PresetStore } from "../src/preset-store.ts";

@@ -2,7 +2,7 @@
 
 [English](README.md) | 简体中文
 
-在 Obsidian 的 Markdown 编辑器中右键，选择 **插入 Badge**，即可预览、创建并按点选顺序批量插入文字 Badge。当前版本：**0.4.0**。
+在 Obsidian 的 Markdown 编辑器中右键，选择 **插入 Badge**，即可预览、创建并按点选顺序批量插入文字 Badge。当前版本：**0.5.0**。
 
 ```html
 <span class="badge badge-red">重要</span> <span class="badge badge-green">完成</span>
@@ -57,15 +57,36 @@
 
 配置页支持新增、编辑、删除、上移和下移，所有条目都显示渲染后的预览。列表顺序只影响展示，实际插入顺序始终由本次点选决定。
 
-Obsidian 1.13.0 及以上版本支持通过设置搜索找到“新增预设”，也可以按预设文字或颜色搜索各个预设；修改后搜索结果会同步更新。Obsidian 1.8.7–1.12.x 使用标准设置页，不提供搜索集成。
+Obsidian 1.13.0 及以上版本支持通过设置搜索找到“新增预设”和 span 导入入口，也可以按预设文字或颜色搜索各个预设；搜索 `span` 即可找到导入入口，修改后搜索结果会同步更新。Obsidian 1.8.7–1.12.x 使用标准设置页，不提供搜索集成。
 
 首次使用按界面语言提供四个示例预设：中文为信息（蓝）、完成（绿）、备注（紫）、重要（红）；英文为 Information、Done、Note、Important。可以修改或全部删除；主动清空后不会自动恢复默认值。已经保存的预设不会被自动翻译。
 
 预设保存在当前 vault 的 `.obsidian/plugins/simple-badge/data.json`。保存失败时会显示错误并保留输入；后续可以重试。配置格式损坏或来自不支持的版本时，插件会提示检查文件，不会用默认值覆盖原配置。
 
-0.4.0 同时读取版本 1 和版本 2 的预设数据，保留已有 ID、文字、颜色和顺序；下一次成功保存预设时写入版本 2，单纯加载不会改写文件。0.3.x 无法读取版本 2 数据，如需降级，请提前备份 `data.json`。
+0.4.0 和 0.5.0 均可读取版本 1 和版本 2 的预设数据，保留已有 ID、文字、颜色和顺序；下一次成功保存预设时写入版本 2，单纯加载不会改写文件。0.3.x 无法读取版本 2 数据，如需降级，请提前备份 `data.json`。
 
 修改、删除预设不会修改笔记中已有的 span，也不会悄悄改变已经打开的插入窗口中的选择。
+
+## 从 span 代码添加预设
+
+需要复用其他 vault 中的 Badge 时，从 Markdown 源码中复制完整的 span，然后打开 **设置 → Simple Badge**。在 **新增预设（Add preset）** 下方找到 **从 span 代码添加预设（Add presets from span code）**，点击右侧的 **添加预设（Add presets）** 按钮。
+
+1. 在弹窗中粘贴一个或多个 span，以空格或换行分隔。也支持用 Markdown 代码块包裹，语言为空或 `html` 均可。
+2. 检查渲染后的预览，以及将新增和跳过的条目数量。
+3. 点击 **添加预设**，所有新 Badge 按粘贴顺序追加到列表末尾，立即可用于插入，也可以像其他预设一样编辑。
+
+例如，一次粘贴下面两行即可添加一个主题色 Badge 和一个自定义颜色 Badge：
+
+```html
+<span class="badge badge-red">重要</span>
+<span class="badge badge-custom" style="--simple-badge-color: #e67e22;">复查 &amp; 确认</span>
+```
+
+相同文字和颜色的条目自动跳过，同一批代码内部的重复项也会去重。`#ABC` 和 `#aabbcc` 等等价 HEX 值视为同色。已有预设保留原来的 ID 和顺序；如果全部重复，添加按钮不可用。
+
+支持 Simple Badge 的八种主题色类和自定义 HEX 格式。HTML 实体会还原为文字，例如 `&amp;` 还原为 `&`，`&lt;` 还原为纯文字 `<`。Badge 文字必须非空且为单行。其他 HTML 标签、额外属性和其他 CSS 声明会被拒绝；该功能导入的是 Badge 的文字与颜色，不会迁移任意 CSS snippet 或主题设置。主题色遵循目标 vault 的主题，自定义 HEX 色值保持一致。
+
+遇到无效 span 时，弹窗会指出它在批次中的位置，全部代码有效后才能添加。取消不会改动预设。单次最多接受 500 个 Badge、200,000 个字符；整批预设通过一次保存操作写入，失败时保留输入，便于重试。
 
 ## 编辑行为
 
@@ -91,7 +112,7 @@ pnpm test
 
 `pnpm dev` 监听源码并重新构建；`pnpm typecheck` 单独检查类型。开发监听不会自动同步或重载 vault 中的插件。
 
-27 项自动化测试覆盖选择顺序与快照、HTML 转义、批量编辑事务、预设管理、并发保存与失败恢复、语言处理、损坏配置拒绝加载及 Canvas 插入目标校验。颜色测试包括 HEX 格式统一与无效输入、八种主题色翻译、混合 HTML 输出、安全 DOM 预览、等价色值去重、版本 1 配置迁移及版本 2 保存失败恢复。`pnpm lint` 使用 Obsidian 官方 ESLint 推荐规则，要求零警告。
+39 项自动化测试覆盖选择顺序与快照、HTML 转义、批量编辑事务、预设管理、并发保存与失败恢复、语言处理、损坏配置拒绝加载及 Canvas 插入目标校验。颜色测试包括 HEX 格式统一与无效输入、八种主题色翻译、混合 HTML 输出、安全 DOM 预览、等价色值去重、版本 1 配置迁移及版本 2 保存失败恢复。导入测试覆盖 HTML 往返与实体还原、错误输入、中英文错误提示、输入上限、重复数量、整批按序保存、重新加载、无变化导入以及并发和失败恢复。`pnpm lint` 使用 Obsidian 官方 ESLint 推荐规则，要求零警告。
 
 已在 Windows Obsidian **1.13.7** 的 Develop vault 中实际验证：带编号的多选、取消后重排、临时与已保存 Badge 混合插入、HTML 转义、整批撤销与重做、设置页增删改排序、插件重新启用后的预设保留和单一右键入口，以及原文变化后保留选择并重新定位插入。示例保留在 vault 的 `Simple Badge 示例.md`。
 
@@ -102,6 +123,8 @@ pnpm test
 0.3.2 已在 Obsidian 1.13.7 的 Develop vault 中使用 `test-canvas.canvas` 实测：文本卡片编辑区右键可打开插入窗口；两个预设按点选顺序插入，span 之间保留一个空格；卡片正常渲染并保存到 Canvas 文件，一次撤销恢复原来的空卡片。
 
 0.4.0 已在 Obsidian 1.13.7 中实测原生取色（包括取色弹窗尚未关闭时的实时更新）、HEX 分段连续输入、无效输入提示、简写统一、新增及编辑自定义预设，以及重新启用插件后恢复预设。自定义色与主题色混合插入后，在 Markdown 实时预览、阅读视图及 Canvas 卡片中均能渲染；Canvas 还检查了浅色与深色模式。整批撤销后，两个测试文件的哈希值均与测试前一致。
+
+0.5.0 已在 Obsidian 1.13.7 英文界面中实测新增设置入口、渲染预览、主题色与自定义 HEX 混合导入、去重数量、实体还原、第 2 个 Badge 的错误提示、取消、设置搜索及重新启用插件后的预设保留。清理临时测试预设后，`data.json`、`test.md` 和 `test-canvas.canvas` 的哈希值与测试前一致。中文导入提示由自动化测试覆盖。
 
 最低支持 Obsidian 1.8.7，与自动语言识别所用的公开 `getLanguage()` 接口一致，颜色选择器没有引入更高版本的 API 要求。调用新版设置接口前通过 `requireApiVersion("1.13.0")` 检查版本，较旧的受支持版本使用传统设置页。这条旧版本路径、第三方主题及移动端没有完成实际界面验证，当前插件仅声明支持桌面端。旧版内置浏览器若不支持 `color-mix()`，会保留基础 Badge 背景。
 
@@ -126,7 +149,7 @@ pnpm run deploy "D:/path/to/vault"
 
 在 Obsidian 的“设置 → 第三方插件”中启用 **Simple Badge**。更新后关闭再开启该插件。
 
-也可以将 `simple-badge-0.4.0.zip` 中的三个文件解压到目标 vault 的 `.obsidian/plugins/simple-badge/` 后启用。更新时保留已有的 `data.json`。
+也可以将 `simple-badge-0.5.0.zip` 中的三个文件解压到目标 vault 的 `.obsidian/plugins/simple-badge/` 后启用。更新时保留已有的 `data.json`。
 
 部署脚本只复制三个插件文件，不改写预设数据、启用列表或其他插件配置。
 
@@ -137,6 +160,8 @@ pnpm run deploy "D:/path/to/vault"
 - `src/i18n.ts`：英文、简体中文文案及语言识别。
 - `src/insert-modal.ts`：预设选择、创建和批量插入窗口。
 - `src/settings.ts`：官方设置页与预设编辑窗口。
+- `src/import-modal.ts`：span 导入窗口、校验提示与渲染预览。
+- `src/span-import.ts`：完整 Badge span 的严格解析与 HTML 实体还原。
 - `src/badge-form.ts`：两类窗口共用的文字、颜色和预览表单。
 - `src/color-picker.ts`：共用的主题色块、原生取色器和带校验的 HEX 输入。
 - `src/model.ts`：预设类型、配置校验、选择顺序和 HTML 序列化。
@@ -144,4 +169,6 @@ pnpm run deploy "D:/path/to/vault"
 - `src/badge.ts`：安全的 DOM 预览与编辑器批量事务。
 - `styles.css`：Badge 固定样式及插件界面布局。
 - `tests/core.test.mjs`：核心行为测试。
+- `tests/import.test.mjs`：span 解析及批量导入测试，通过同一测试命令运行。
 - `scripts/deploy.mjs`：复制构建产物到指定 vault。
+- `THIRD-PARTY-NOTICES.txt`：内置 HTML 实体解码库的许可声明，构建时也会写入 `main.js`。

@@ -1,4 +1,4 @@
-import { getLanguage, MarkdownView, Notice, Plugin, type Editor } from "obsidian";
+import { getLanguage, MarkdownView, Notice, Plugin, type Editor, type Modal } from "obsidian";
 import { insertBadges } from "./badge";
 import { BadgeInsertModal } from "./insert-modal";
 import { PresetStore } from "./preset-store";
@@ -6,6 +6,7 @@ import { PresetEditModal, SimpleBadgeSettingTab } from "./settings";
 import type { BadgePreset, InsertSession } from "./model";
 import { getTranslations } from "./i18n";
 import { captureEditorTarget } from "./editor-target";
+import { PresetImportModal } from "./import-modal";
 
 export default class SimpleBadgePlugin extends Plugin {
   presets!: PresetStore;
@@ -14,7 +15,7 @@ export default class SimpleBadgePlugin extends Plugin {
   private revisions = new WeakMap<Editor, number>();
   private insertModal: BadgeInsertModal | undefined;
   private settingsTab: SimpleBadgeSettingTab | undefined;
-  private editModals = new Set<PresetEditModal>();
+  private presetModals = new Set<Modal>();
   private pendingSession: InsertSession | undefined;
   private active = false;
 
@@ -71,15 +72,25 @@ export default class SimpleBadgePlugin extends Plugin {
       if (!this.active) throw new Error(this.strings.pluginDisabled);
       if (preset) await this.presets.update(preset.id, badge);
       else await this.presets.add(badge);
-    }, () => this.editModals.delete(modal));
-    this.editModals.add(modal);
+    }, () => this.presetModals.delete(modal));
+    this.presetModals.add(modal);
+    modal.open();
+  }
+
+  openPresetImporter(): void {
+    if (!this.active || this.loadError) return;
+    const modal = new PresetImportModal(this.app, this.presets, badges => {
+      if (!this.active) return Promise.reject(new Error(this.strings.pluginDisabled));
+      return this.presets.addMany(badges);
+    }, () => this.presetModals.delete(modal));
+    this.presetModals.add(modal);
     modal.open();
   }
 
   onunload(): void {
     this.active = false;
     this.insertModal?.close();
-    for (const modal of this.editModals) modal.close();
+    for (const modal of this.presetModals) modal.close();
     this.settingsTab?.hide();
     this.pendingSession = undefined;
   }

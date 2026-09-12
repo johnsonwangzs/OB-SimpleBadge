@@ -2,7 +2,7 @@
 
 English | [简体中文](README.zh-CN.md)
 
-Right-click in an Obsidian Markdown editor and choose **Insert Badge** to preview, create, and insert multiple text badges in the order you select them. Current version: **0.4.0**.
+Right-click in an Obsidian Markdown editor and choose **Insert Badge** to preview, create, and insert multiple text badges in the order you select them. Current version: **0.5.0**.
 
 ```html
 <span class="badge badge-red">Important</span> <span class="badge badge-green">Done</span>
@@ -65,17 +65,38 @@ Open Obsidian **Settings → Community plugins → Installed plugins → ⋮ nex
 
 The settings page lets you add, edit, delete, and move presets up or down. Every entry shows a rendered preview. Preset order controls how badges are displayed; insertion order always follows your selection order in the insertion dialog.
 
-On Obsidian 1.13.0 and later, settings search can find the add-preset action and individual presets by their text or color. Results update when presets change. Obsidian 1.8.7–1.12.x uses the standard settings page without search integration.
+On Obsidian 1.13.0 and later, settings search can find the add-preset and span-import actions, and individual presets by their text or color. Search for `span` to find the import action. Results update when presets change. Obsidian 1.8.7–1.12.x uses the standard settings page without search integration.
 
 On first use, the plugin provides four example presets in the interface language: Information (blue), Done (green), Note (purple), and Important (red) in English; 信息、完成、备注、重要 in Chinese. You can edit or delete all of them. Deliberately clearing the list does not restore the defaults. Existing saved presets are never translated automatically.
 
 Presets are stored in `.obsidian/plugins/simple-badge/data.json` in the current vault. If saving fails, an error is displayed and your input is retained so you can retry. If the configuration is invalid or uses an unsupported version, the plugin asks you to check the file instead of overwriting it with defaults.
 
-Version 0.4.0 reads both version 1 and version 2 preset data. Existing IDs, text, colors, and order are preserved; the next successful preset save writes version 2. Loading alone does not rewrite the file. Version 0.3.x cannot read version 2 data, so keep a backup of `data.json` if you intend to downgrade.
+Versions 0.4.0 and 0.5.0 read both version 1 and version 2 preset data. Existing IDs, text, colors, and order are preserved; the next successful preset save writes version 2. Loading alone does not rewrite the file. Version 0.3.x cannot read version 2 data, so keep a backup of `data.json` if you intend to downgrade.
 
 Editing or deleting a preset does not change spans already inserted in notes or silently change selections in an insertion dialog that is already open.
 
 ![Manage Presets](assets/0.png)
+
+## Add presets from span code
+
+To reuse badges from another vault, copy their complete span code from the Markdown source and open **Settings → Simple Badge**. Directly below **Add preset**, the **Add presets from span code (从 span 代码添加预设)** row has an **Add presets (添加预设)** button.
+
+1. Open the import dialog and paste one or more spans, separated by spaces or newlines. An enclosing Markdown code block with no language or with `html` is also accepted.
+2. Check the rendered previews and the counts of new and duplicate badges.
+3. Click **Add presets** to append all new badges in their pasted order. They are immediately available in the insertion dialog and can be edited like any other preset.
+
+For example, paste both lines to add a theme badge and a custom-color badge:
+
+```html
+<span class="badge badge-red">Important</span>
+<span class="badge badge-custom" style="--simple-badge-color: #e67e22;">Review &amp; approve</span>
+```
+
+Duplicates with the same text and color are skipped, including duplicates within the pasted batch. Equivalent HEX values such as `#ABC` and `#aabbcc` count as the same color. Existing presets keep their IDs and order. If every badge is already present, adding is disabled.
+
+The importer accepts Simple Badge's eight theme color classes and its custom HEX format. Text is decoded from HTML entities, so `&amp;` becomes `&` and `&lt;` becomes literal `<` text. Badge text must be nonempty and single-line. Other HTML elements, extra attributes, and other CSS declarations are rejected; this feature imports badge text and color, not arbitrary CSS snippets or theme settings. Theme colors follow the destination vault's theme, while custom HEX colors retain their specified values.
+
+An invalid span shows an inline error with its position in the batch, and nothing is added until the entire input is valid. Canceling leaves presets unchanged. Each import accepts up to 500 badges and 200,000 characters. Saving uses one batch operation; if it fails, the input is retained for retry.
 
 ## Editor behavior
 
@@ -103,7 +124,7 @@ pnpm test
 
 `pnpm dev` watches the source and rebuilds it. `pnpm typecheck` runs type checking separately. Watch mode does not automatically copy files to the vault or reload the plugin.
 
-The 27 automated tests cover selection order and snapshots, HTML escaping, batch editor transactions, preset management, concurrent saves and failure recovery, language handling, malformed configuration rejection, and Canvas insertion targets. Color tests cover HEX normalization and invalid input, all eight translated theme colors, mixed HTML output, safe DOM previews, equivalent-color duplicates, version 1 migration, and version 2 save failures. `pnpm lint` runs the official Obsidian ESLint recommended rules with zero warnings allowed.
+The 39 automated tests cover selection order and snapshots, HTML escaping, batch editor transactions, preset management, concurrent saves and failure recovery, language handling, malformed configuration rejection, and Canvas insertion targets. Color tests cover HEX normalization and invalid input, all eight translated theme colors, mixed HTML output, safe DOM previews, equivalent-color duplicates, version 1 migration, and version 2 save failures. Import tests cover HTML round trips and entity decoding, malformed input, localized errors, input limits, duplicate counts, ordered batch saves, reload persistence, unchanged imports, and concurrent or failed imports. `pnpm lint` runs the official Obsidian ESLint recommended rules with zero warnings allowed.
 
 The following behaviors have also been verified in the Develop vault on Windows with Obsidian **1.13.7**: numbered selection, renumbering after deselection, mixed insertion of temporary and saved badges, HTML escaping, undo and redo of a complete batch, preset management in settings, preset persistence after re-enabling the plugin, a single context-menu entry after reloading, and preserving a selection while choosing a new insertion position after the note changes. Examples remain in `Simple Badge 示例.md` in that test vault.
 
@@ -114,6 +135,8 @@ Version 0.3.1 was checked in Obsidian 1.13.7 for settings search, navigating to 
 Version 0.3.2 was checked in the Develop vault's `test-canvas.canvas` on Obsidian 1.13.7. The text-card editor menu opened the insertion dialog, and two selected presets were inserted in selection order with one space between spans. The badges rendered in the card and persisted to the Canvas file. A single undo restored the original empty card.
 
 Version 0.4.0 was checked on Obsidian 1.13.7 for native color picking (including updates while the picker stays open), incremental HEX entry, invalid input, shorthand normalization, creating and editing custom presets, and restoring them after re-enabling the plugin. Mixed custom and theme badges rendered in Markdown Live Preview, Reading view, and Canvas cards. Canvas was also checked in light and dark modes. Batch undo restored both test files to their original hashes.
+
+Version 0.5.0 was checked in the English interface on Obsidian 1.13.7 for the new settings row, rendered import previews, mixed theme and custom HEX batches, duplicate counts, entity decoding, invalid second-badge errors, canceling, settings search, and persistence after re-enabling the plugin. After removing the temporary test presets, `data.json`, `test.md`, and `test-canvas.canvas` matched their pre-test hashes. Chinese import messages are covered by automated tests.
 
 The minimum supported Obsidian version is 1.8.7, matching the public `getLanguage()` API used for automatic language detection. The color picker does not require a newer API. Newer settings APIs are guarded with `requireApiVersion("1.13.0")`, with an imperative settings fallback for earlier supported versions. That older-version path, third-party themes, and mobile have not been verified through actual UI testing; the plugin currently declares desktop-only support. Older embedded browsers that do not support `color-mix()` retain the base badge background.
 
@@ -138,7 +161,7 @@ pnpm run deploy "D:/path/to/vault"
 
 Enable **Simple Badge** in Obsidian under **Settings → Community plugins**. After updating, disable and re-enable the plugin to reload it.
 
-Alternatively, extract the three files from `simple-badge-0.4.0.zip` into `.obsidian/plugins/simple-badge/` in the target vault, then enable the plugin. Preserve the existing `data.json` when updating.
+Alternatively, extract the three files from `simple-badge-0.5.0.zip` into `.obsidian/plugins/simple-badge/` in the target vault, then enable the plugin. Preserve the existing `data.json` when updating.
 
 The deployment script copies only the three plugin files. It does not modify preset data, the enabled-plugin list, or other plugin settings.
 
@@ -149,6 +172,8 @@ The deployment script copies only the three plugin files. It does not modify pre
 - `src/i18n.ts`: English and Simplified Chinese translations and language resolution.
 - `src/insert-modal.ts`: Preset selection, badge creation, and batch insertion dialog.
 - `src/settings.ts`: Obsidian settings page and preset editor dialog.
+- `src/import-modal.ts`: Span import dialog, validation feedback, and rendered previews.
+- `src/span-import.ts`: Strict parsing of complete badge spans and HTML entity decoding.
 - `src/badge-form.ts`: Shared text, color, and preview form used by both dialogs.
 - `src/color-picker.ts`: Shared theme swatches, native color picker, and HEX input with validation.
 - `src/model.ts`: Preset types, configuration validation, selection order, and HTML serialization.
@@ -156,4 +181,6 @@ The deployment script copies only the three plugin files. It does not modify pre
 - `src/badge.ts`: Safe DOM previews and batch editor transactions.
 - `styles.css`: Fixed badge styles and plugin interface layout.
 - `tests/core.test.mjs`: Core behavior tests.
+- `tests/import.test.mjs`: Span parsing and batch import tests, included in the same test command.
 - `scripts/deploy.mjs`: Copies build artifacts to a specified vault.
+- `THIRD-PARTY-NOTICES.txt`: License for the bundled HTML entity decoder; also included in the generated `main.js`.

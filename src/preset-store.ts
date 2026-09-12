@@ -1,10 +1,12 @@
-import { createId, decodeData, normalizeBadge, sameBadge, type Badge, type BadgePreset, type PresetData } from "./model";
+import { createId, decodeData, normalizeBadge, planPresetImport, sameBadge, type Badge, type BadgePreset, type PresetData } from "./model";
 import { getTranslations } from "./i18n";
 
 interface PresetStorage {
   load(): Promise<unknown>;
   save(data: PresetData): Promise<void>;
 }
+
+export interface ImportResult { added: number; skipped: number }
 
 export class PresetStore {
   private data: PresetData = { schemaVersion: 2, presets: [] };
@@ -37,6 +39,16 @@ export class PresetStore {
     });
   }
 
+  async addMany(badges: readonly Badge[]): Promise<ImportResult> {
+    // Validate and snapshot the whole batch before queuing a single write.
+    const values = badges.map(badge => normalizeBadge(badge, this.strings));
+    return this.mutate(draft => {
+      const { newBadges, skipped } = planPresetImport(values, draft.presets);
+      draft.presets.push(...newBadges.map(value => ({ id: createId(), ...value })));
+      return { added: newBadges.length, skipped };
+    }, true);
+  }
+
   update(id: string, badge: Badge): Promise<void> {
     return this.mutate(draft => {
       const index = this.findIndex(draft, id);
@@ -67,12 +79,15 @@ export class PresetStore {
     return index;
   }
 
-  private mutate<T>(change: (draft: PresetData) => T): Promise<T> {
+  private mutate<T>(change: (draft: PresetData) => T, skipUnchanged = false): Promise<T> {
     // Serialize writes so a slow save cannot overwrite a newer change.
     const operation = this.tail.then(async () => {
       if (!this.loaded) throw new Error(this.strings.configNotLoaded);
       const draft: PresetData = { schemaVersion: 2, presets: this.presets };
       const result = change(draft);
+      if (skipUnchanged && draft.presets.length === this.data.presets.length
+        && draft.presets.every((preset, index) => preset.id === this.data.presets[index].id
+          && sameBadge(preset, this.data.presets[index]))) return result;
       await this.storage.save(draft);
       this.data = draft;
       for (const listener of this.listeners) {

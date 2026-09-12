@@ -61,6 +61,15 @@ export function sameBadge(a: Badge, b: Badge): boolean {
   return a.text === b.text && color !== undefined && color === normalizeColor(b.color);
 }
 
+export function planPresetImport(badges: readonly Badge[], existing: readonly Badge[]): { newBadges: Badge[]; skipped: number } {
+  const newBadges: Badge[] = [];
+  for (const badge of badges) {
+    if (existing.some(preset => sameBadge(preset, badge)) || newBadges.some(preset => sameBadge(preset, badge))) continue;
+    newBadges.push({ ...badge });
+  }
+  return { newBadges, skipped: badges.length - newBadges.length };
+}
+
 export function createId(): string {
   return Array.from(crypto.getRandomValues(new Uint32Array(4)), part => part.toString(16).padStart(8, "0")).join("");
 }

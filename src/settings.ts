@@ -43,6 +43,9 @@ export class SimpleBadgeSettingTab extends PluginSettingTab {
         items: [{
           name: strings.addPreset, desc: strings.presetDescription, aliases: ["badge", "badges"],
           render: setting => this.renderAdd(setting),
+        }, {
+          name: strings.importPresets, desc: strings.importDescription, aliases: ["span", "HTML", "import", "badge"],
+          render: setting => this.renderImport(setting),
         }],
       },
       {
@@ -72,6 +75,7 @@ export class SimpleBadgeSettingTab extends PluginSettingTab {
     this.containerEl.empty();
     new Setting(this.containerEl).setName(strings.presetBadges).setHeading();
     this.renderAdd(new Setting(this.containerEl).setName(strings.addPreset).setDesc(strings.presetDescription));
+    this.renderImport(new Setting(this.containerEl).setName(strings.importPresets).setDesc(strings.importDescription));
     const presets = this.owner.presets.presets;
     if (!presets.length) this.containerEl.createEl("p", { cls: "simple-badge-muted", text: strings.emptyPresetsForSettings });
     for (const preset of presets) {
@@ -83,6 +87,11 @@ export class SimpleBadgeSettingTab extends PluginSettingTab {
   private renderAdd(setting: Setting): void {
     setting.addButton(button => button.setButtonText(this.owner.strings.addPreset).setCta()
       .setDisabled(this.busy || !!this.owner.loadError).onClick(() => this.owner.openPresetEditor()));
+  }
+
+  private renderImport(setting: Setting): void {
+    setting.addButton(button => button.setButtonText(this.owner.strings.importAction)
+      .setDisabled(this.busy || !!this.owner.loadError).onClick(() => this.owner.openPresetImporter()));
   }
 
   private renderPreset(setting: Setting, preset: BadgePreset): void {
