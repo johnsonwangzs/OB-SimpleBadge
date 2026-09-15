@@ -16,7 +16,11 @@ export type CustomBadgeColor = `#${string}`;
 export type BadgeColor = ThemeBadgeColor | CustomBadgeColor;
 export interface Badge { text: string; color: BadgeColor }
 export interface BadgePreset extends Badge { id: string }
-export interface PresetData { schemaVersion: 2; presets: BadgePreset[] }
+export const DEFAULT_BADGE_FONT_SIZE_PERCENT = 72;
+export const MIN_BADGE_FONT_SIZE_PERCENT = 50;
+export const MAX_BADGE_FONT_SIZE_PERCENT = 150;
+export interface BadgeSettings { badgeFontSizePercent: number }
+export interface PresetData { schemaVersion: 3; presets: BadgePreset[]; settings: BadgeSettings }
 export interface BadgeDraft extends Badge { save: boolean; customColorInput?: string }
 export interface InsertSession {
   presets: BadgePreset[];
@@ -26,6 +30,18 @@ export interface InsertSession {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function defaultSettings(): BadgeSettings {
+  return { badgeFontSizePercent: DEFAULT_BADGE_FONT_SIZE_PERCENT };
+}
+
+export function validateFontSizePercent(value: unknown, strings = getTranslations()): number {
+  if (typeof value !== "number" || !Number.isInteger(value)
+    || value < MIN_BADGE_FONT_SIZE_PERCENT || value > MAX_BADGE_FONT_SIZE_PERCENT) {
+    throw new Error(strings.invalidFontSize);
+  }
+  return value;
 }
 
 export function isThemeColor(value: unknown): value is ThemeBadgeColor {
@@ -75,7 +91,7 @@ export function createId(): string {
 }
 
 export function defaultData(strings: Translations = getTranslations()): PresetData {
-  return { schemaVersion: 2, presets: [
+  return { schemaVersion: 3, settings: defaultSettings(), presets: [
     { id: "default-blue", color: "blue", text: strings.defaults.blue },
     { id: "default-green", color: "green", text: strings.defaults.green },
     { id: "default-purple", color: "purple", text: strings.defaults.purple },
@@ -85,9 +101,12 @@ export function defaultData(strings: Translations = getTranslations()): PresetDa
 
 export function decodeData(raw: unknown, strings = getTranslations()): PresetData {
   if (raw == null) return defaultData(strings);
-  if (!isRecord(raw) || (raw.schemaVersion !== 1 && raw.schemaVersion !== 2) || !Array.isArray(raw.presets)) {
+  if (!isRecord(raw) || (raw.schemaVersion !== 1 && raw.schemaVersion !== 2 && raw.schemaVersion !== 3) || !Array.isArray(raw.presets)) {
     throw new Error(strings.unsupportedConfig);
   }
+  const settings = raw.schemaVersion === 3
+    ? { badgeFontSizePercent: validateFontSizePercent(isRecord(raw.settings) ? raw.settings.badgeFontSizePercent : undefined, strings) }
+    : defaultSettings();
   const presets: BadgePreset[] = [];
   const entries: unknown[] = raw.presets;
   for (const entry of entries) {
@@ -100,7 +119,7 @@ export function decodeData(raw: unknown, strings = getTranslations()): PresetDat
     }
     presets.push({ id: entry.id, ...badge });
   }
-  return { schemaVersion: 2, presets };
+  return { schemaVersion: 3, presets, settings };
 }
 
 // Selections are snapshots: later preset edits cannot silently change this batch.

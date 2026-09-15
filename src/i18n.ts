@@ -1,4 +1,12 @@
 const en = {
+  appearance: "Appearance",
+  badgeFontSize: "Badge font size ratio",
+  badgeFontSizeDescription: "Scale all badges relative to the surrounding text, including presets, previews, and badges already in notes. Default: 72%.",
+  badgeFontSizeInput: "Badge font size percentage",
+  resetFontSize: "Reset to 72%",
+  invalidFontSize: "Enter a whole percentage from 50 to 150.",
+  fontSizeSaved: "Font size ratio saved.",
+  fontSizeSaveFailed: "Could not save the font size ratio. Restored the last saved value. Please try again.",
   insertBadge: "Insert Badge",
   presetBadges: "Preset badges",
   createBadge: "Create a badge",
@@ -83,6 +91,14 @@ const en = {
 export type Translations = typeof en;
 
 const zh: Translations = {
+  appearance: "外观",
+  badgeFontSize: "Badge 字号比例",
+  badgeFontSizeDescription: "相对于周围文字缩放所有 Badge，包括预设、各处预览和笔记中已有的 Badge。默认：72%。",
+  badgeFontSizeInput: "Badge 字号百分比",
+  resetFontSize: "恢复为 72%",
+  invalidFontSize: "请输入 50 到 150 之间的整数百分比。",
+  fontSizeSaved: "字号比例已保存。",
+  fontSizeSaveFailed: "字号比例保存失败，已恢复最近成功保存的值，请重试。",
   insertBadge: "插入 Badge",
   presetBadges: "预设 Badge",
   createBadge: "新建 Badge",

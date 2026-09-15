@@ -4,6 +4,7 @@ import { BadgeForm } from "./badge-form";
 import { colorLabel, type Badge, type BadgePreset } from "./model";
 import type SimpleBadgePlugin from "./main";
 import type { Translations } from "./i18n";
+import { FontSizeControl } from "./font-size-control";
 
 export class PresetEditModal extends Modal {
   private form: BadgeForm | undefined;
@@ -28,16 +29,31 @@ export class SimpleBadgeSettingTab extends PluginSettingTab {
   private visible = false;
   private status = "";
   private statusIsError = false;
+  private fontSizeControls = new Set<FontSizeControl>();
   constructor(app: App, private readonly owner: SimpleBadgePlugin) {
     super(app, owner);
     // Keep the search index current even while this tab is hidden.
-    owner.register(owner.presets.subscribe(() => this.refresh()));
+    owner.register(owner.presets.subscribe(change => { if (change === "presets") this.refresh(); }));
+    owner.register(owner.fontSize.subscribe(() => {
+      for (const control of this.fontSizeControls) {
+        if (control.element.isConnected) control.refresh();
+        else this.fontSizeControls.delete(control);
+      }
+    }));
   }
 
   // Obsidian 1.13+ renders and indexes these definitions instead of display().
   getSettingDefinitions(): SettingDefinitionItem[] {
     const strings = this.owner.strings;
     return [
+      {
+        type: "group", heading: strings.appearance,
+        items: [{
+          name: strings.badgeFontSize, desc: strings.badgeFontSizeDescription,
+          aliases: ["badge", "font", "size", "scale", "%", "字号", "比例"],
+          render: setting => this.renderFontSize(setting),
+        }],
+      },
       {
         type: "group", heading: strings.presetBadges,
         items: [{
@@ -68,11 +84,13 @@ export class SimpleBadgeSettingTab extends PluginSettingTab {
     this.visible = true;
     this.renderLegacy();
   }
-  hide(): void { this.visible = false; }
+  hide(): void { this.visible = false; this.fontSizeControls.clear(); void this.owner.fontSize.flush(); }
 
   private renderLegacy(): void {
     const strings = this.owner.strings;
     this.containerEl.empty();
+    new Setting(this.containerEl).setName(strings.appearance).setHeading();
+    this.renderFontSize(new Setting(this.containerEl).setName(strings.badgeFontSize).setDesc(strings.badgeFontSizeDescription));
     new Setting(this.containerEl).setName(strings.presetBadges).setHeading();
     this.renderAdd(new Setting(this.containerEl).setName(strings.addPreset).setDesc(strings.presetDescription));
     this.renderImport(new Setting(this.containerEl).setName(strings.importPresets).setDesc(strings.importDescription));
@@ -89,12 +107,20 @@ export class SimpleBadgeSettingTab extends PluginSettingTab {
       .setDisabled(this.busy || !!this.owner.loadError).onClick(() => this.owner.openPresetEditor()));
   }
 
+  private renderFontSize(setting: Setting): void {
+    // Obsidian's separate settings window is not a workspace leaf.
+    this.owner.appearance.attach(setting.settingEl.ownerDocument);
+    for (const control of this.fontSizeControls) if (!control.element.isConnected) this.fontSizeControls.delete(control);
+    this.fontSizeControls.add(new FontSizeControl(setting, this.owner.fontSize, this.owner.strings, !!this.owner.loadError));
+  }
+
   private renderImport(setting: Setting): void {
     setting.addButton(button => button.setButtonText(this.owner.strings.importAction)
       .setDisabled(this.busy || !!this.owner.loadError).onClick(() => this.owner.openPresetImporter()));
   }
 
   private renderPreset(setting: Setting, preset: BadgePreset): void {
+    this.owner.appearance.attach(setting.settingEl.ownerDocument);
     const strings = this.owner.strings;
     const presets = this.owner.presets.presets;
     const index = presets.findIndex(item => item.id === preset.id);

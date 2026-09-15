@@ -1,5 +1,6 @@
 import test from "node:test";
 import "./import.test.mjs";
+import "./appearance.test.mjs";
 import assert from "node:assert/strict";
 import { BADGE_COLORS, OrderedBadges, colorLabel, decodeData, defaultData, normalizeBadge, normalizeHexColor, sameBadge, serializeBadges } from "../src/model.ts";
 import { PresetStore } from "../src/preset-store.ts";
@@ -10,7 +11,7 @@ import { captureEditorTarget } from "../src/editor-target.ts";
 const a = { id: "a", text: "重要", color: "red" };
 const b = { id: "b", text: "信息", color: "blue" };
 const c = { id: "c", text: "完成", color: "green" };
-const empty = () => ({ schemaVersion: 2, presets: [] });
+const empty = () => ({ schemaVersion: 3, presets: [], settings: { badgeFontSizePercent: 72 } });
 const makeStore = async (raw = null) => {
   let persisted = structuredClone(raw);
   const store = new PresetStore({ load: async () => persisted, save: async data => { persisted = structuredClone(data); } });
@@ -75,7 +76,7 @@ test("version 1 migrates on the next successful save, keeping IDs, order and emp
   assert.deepEqual(store.presets, raw.presets);
   assert.deepEqual(decodeData({ schemaVersion: 1, presets: [] }), empty());
   await store.update(a.id, { text: a.text, color: "#E67E22" });
-  assert.deepEqual(read(), { schemaVersion: 2, presets: [c, { ...a, color: "#e67e22" }, b] });
+  assert.deepEqual(read(), { ...empty(), presets: [c, { ...a, color: "#e67e22" }, b] });
   const { store: reopened } = await makeStore(read());
   assert.deepEqual(reopened.presets, store.presets);
   await reopened.update(a.id, { text: a.text, color: "pink" });
@@ -100,7 +101,7 @@ test("equivalent HEX colors reuse IDs and cannot create duplicate presets or sel
   assert.throws(() => decodeData({ schemaVersion: 2, presets: [first, { ...first, id: "other", color: "#ABC" }] }));
 });
 
-test("failed version 2 saves preserve the old configuration and allow retry", async () => {
+test("failed current-version saves preserve the old configuration and allow retry", async () => {
   let persisted = { schemaVersion: 1, presets: [a] };
   let fail = true;
   const store = new PresetStore({ load: async () => persisted, save: async data => {
@@ -113,7 +114,7 @@ test("failed version 2 saves preserve the old configuration and allow retry", as
   assert.deepEqual(store.presets, [a]);
   fail = false;
   await store.add({ text: "Custom", color: "#ABC" });
-  assert.equal(persisted.schemaVersion, 2);
+  assert.equal(persisted.schemaVersion, 3);
   assert.equal(persisted.presets[1].color, "#aabbcc");
 });
 
@@ -233,7 +234,7 @@ test("first launch gets defaults, deliberately empty presets stay empty", () => 
 });
 
 test("invalid or future configuration is rejected instead of silently overwritten", async () => {
-  for (const raw of [{}, { schemaVersion: 3, presets: [] }, { schemaVersion: 1, presets: [a, a] },
+  for (const raw of [{}, { schemaVersion: 4, presets: [] }, { schemaVersion: 1, presets: [a, a] },
     { schemaVersion: 1, presets: [a, { ...a, id: "different" }] }, { schemaVersion: 1, presets: [{ ...a, text: "" }] }]) {
     let saves = 0;
     const store = new PresetStore({ load: async () => raw, save: async () => { saves++; } });
@@ -363,7 +364,7 @@ test("validation and preset errors use the same language as their UI", async () 
       [{ text: "A\nB", color: "blue" }, strings.singleLine],
       [{ text: "A", color: "invalid" }, strings.invalidColor],
     ]) assert.throws(() => normalizeBadge(badge, strings), { message });
-    assert.throws(() => decodeData({ schemaVersion: 3, presets: [] }, strings), { message: strings.unsupportedConfig });
+    assert.throws(() => decodeData({ schemaVersion: 4, presets: [] }, strings), { message: strings.unsupportedConfig });
     assert.throws(() => decodeData({ schemaVersion: 1, presets: [{ ...a, id: "" }] }, strings), { message: strings.invalidId });
     assert.throws(() => decodeData({ schemaVersion: 1, presets: [a, a] }, strings), { message: strings.duplicateConfig });
     const store = new PresetStore({ load: async () => ({ schemaVersion: 1, presets: [a, b] }), save: async () => {} }, strings);

@@ -41,7 +41,7 @@ export class PresetImportModal extends Modal {
     this.cancelButton.addEventListener("click", () => this.close());
     this.addButton = footer.createEl("button", { text: strings.importAction, cls: "mod-cta", attr: { type: "button" } });
     this.addButton.addEventListener("click", () => { void this.submit(); });
-    this.unsubscribe = this.store.subscribe(() => this.renderPreview());
+    this.unsubscribe = this.store.subscribe(change => { if (change === "presets") this.renderPreview(); });
     this.renderPreview();
     this.input.focus();
   }

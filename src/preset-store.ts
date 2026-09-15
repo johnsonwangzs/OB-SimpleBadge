@@ -1,4 +1,4 @@
-import { createId, decodeData, normalizeBadge, planPresetImport, sameBadge, type Badge, type BadgePreset, type PresetData } from "./model";
+import { createId, decodeData, defaultSettings, normalizeBadge, planPresetImport, sameBadge, validateFontSizePercent, type Badge, type BadgePreset, type PresetData } from "./model";
 import { getTranslations } from "./i18n";
 
 interface PresetStorage {
@@ -7,12 +7,13 @@ interface PresetStorage {
 }
 
 export interface ImportResult { added: number; skipped: number }
+type StoreChange = "presets" | "appearance";
 
 export class PresetStore {
-  private data: PresetData = { schemaVersion: 2, presets: [] };
+  private data: PresetData = { schemaVersion: 3, presets: [], settings: defaultSettings() };
   private loaded = false;
   private tail: Promise<void> = Promise.resolve();
-  private listeners = new Set<() => void>();
+  private listeners = new Set<(change: StoreChange) => void>();
 
   constructor(private readonly storage: PresetStorage, readonly strings = getTranslations()) {}
 
@@ -22,8 +23,14 @@ export class PresetStore {
   }
 
   get presets(): BadgePreset[] { return this.data.presets.map(item => ({ ...item })); }
+  get badgeFontSizePercent(): number { return this.data.settings.badgeFontSizePercent; }
 
-  subscribe(listener: () => void): () => void {
+  async setBadgeFontSizePercent(value: number): Promise<void> {
+    const percent = validateFontSizePercent(value, this.strings);
+    await this.mutate(draft => { draft.settings.badgeFontSizePercent = percent; }, true, "appearance");
+  }
+
+  subscribe(listener: (change: StoreChange) => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   }
@@ -79,19 +86,20 @@ export class PresetStore {
     return index;
   }
 
-  private mutate<T>(change: (draft: PresetData) => T, skipUnchanged = false): Promise<T> {
+  private mutate<T>(change: (draft: PresetData) => T, skipUnchanged = false, kind: StoreChange = "presets"): Promise<T> {
     // Serialize writes so a slow save cannot overwrite a newer change.
     const operation = this.tail.then(async () => {
       if (!this.loaded) throw new Error(this.strings.configNotLoaded);
-      const draft: PresetData = { schemaVersion: 2, presets: this.presets };
+      const draft: PresetData = { schemaVersion: 3, presets: this.presets, settings: { ...this.data.settings } };
       const result = change(draft);
-      if (skipUnchanged && draft.presets.length === this.data.presets.length
+      if (skipUnchanged && draft.settings.badgeFontSizePercent === this.badgeFontSizePercent
+        && draft.presets.length === this.data.presets.length
         && draft.presets.every((preset, index) => preset.id === this.data.presets[index].id
           && sameBadge(preset, this.data.presets[index]))) return result;
       await this.storage.save(draft);
       this.data = draft;
       for (const listener of this.listeners) {
-        try { listener(); } catch (error) { console.error("Simple Badge: settings refresh failed", error); }
+        try { listener(kind); } catch (error) { console.error("Simple Badge: settings refresh failed", error); }
       }
       return result;
     });

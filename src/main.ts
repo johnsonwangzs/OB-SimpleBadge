@@ -7,9 +7,12 @@ import type { BadgePreset, InsertSession } from "./model";
 import { getTranslations } from "./i18n";
 import { captureEditorTarget } from "./editor-target";
 import { PresetImportModal } from "./import-modal";
+import { BadgeAppearance, BadgeFontSize } from "./appearance";
 
 export default class SimpleBadgePlugin extends Plugin {
   presets!: PresetStore;
+  fontSize!: BadgeFontSize;
+  appearance!: BadgeAppearance;
   strings = getTranslations();
   loadError: string | undefined;
   private revisions = new WeakMap<Editor, number>();
@@ -28,6 +31,22 @@ export default class SimpleBadgePlugin extends Plugin {
       new Notice(`Simple Badge: ${this.loadError}`);
     }
     this.active = true;
+    this.fontSize = new BadgeFontSize(this.presets, this.app.workspace.containerEl.win);
+    const appearance = this.appearance = new BadgeAppearance(this.fontSize.value);
+    const attachWindows = () => {
+      if (!this.active) return;
+      appearance.attach(this.app.workspace.containerEl.ownerDocument);
+      this.app.workspace.iterateAllLeaves(leaf => appearance.attach(leaf.view.containerEl.ownerDocument));
+    };
+    attachWindows();
+    this.app.workspace.onLayoutReady(attachWindows);
+    this.registerEvent(this.app.workspace.on("window-open", (_workspaceWindow, win) => appearance.attach(win.document)));
+    this.registerEvent(this.app.workspace.on("window-close", (_workspaceWindow, win) => appearance.detach(win.document)));
+    this.register(this.fontSize.subscribe(() => {
+      appearance.set(this.fontSize.value);
+      if (this.fontSize.error) new Notice(this.fontSize.error);
+    }));
+    this.register(() => appearance.dispose());
     this.settingsTab = new SimpleBadgeSettingTab(this.app, this);
     this.addSettingTab(this.settingsTab);
     this.registerEvent(this.app.workspace.on("editor-change", (editor) => {
@@ -62,6 +81,7 @@ export default class SimpleBadgePlugin extends Plugin {
         }, session);
         this.insertModal = modal;
         modal.open();
+        appearance.attach(modal.modalEl.ownerDocument);
       }));
     }));
   }
@@ -75,6 +95,7 @@ export default class SimpleBadgePlugin extends Plugin {
     }, () => this.presetModals.delete(modal));
     this.presetModals.add(modal);
     modal.open();
+    this.appearance.attach(modal.modalEl.ownerDocument);
   }
 
   openPresetImporter(): void {
@@ -85,10 +106,12 @@ export default class SimpleBadgePlugin extends Plugin {
     }, () => this.presetModals.delete(modal));
     this.presetModals.add(modal);
     modal.open();
+    this.appearance.attach(modal.modalEl.ownerDocument);
   }
 
   onunload(): void {
     this.active = false;
+    this.fontSize?.dispose();
     this.insertModal?.close();
     for (const modal of this.presetModals) modal.close();
     this.settingsTab?.hide();

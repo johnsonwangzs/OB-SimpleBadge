@@ -154,7 +154,7 @@ test("failed batch saves preserve memory and allow a complete retry", async () =
   assert.equal(notifications, 0);
   fail = false;
   assert.deepEqual(await store.addMany(badges), { added: 2, skipped: 0 });
-  assert.equal(persisted.schemaVersion, 2);
+  assert.equal(persisted.schemaVersion, 3);
   assert.equal(persisted.presets.length, 3);
   assert.equal(notifications, 1);
 });
