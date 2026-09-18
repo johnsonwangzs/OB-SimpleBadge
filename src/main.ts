@@ -7,11 +7,12 @@ import type { BadgePreset, InsertSession } from "./model";
 import { getTranslations } from "./i18n";
 import { captureEditorTarget } from "./editor-target";
 import { PresetImportModal } from "./import-modal";
-import { BadgeAppearance, BadgeFontSize } from "./appearance";
+import { BadgeAppearance, BadgeFontSize, BadgeRoundness } from "./appearance";
 
 export default class SimpleBadgePlugin extends Plugin {
   presets!: PresetStore;
   fontSize!: BadgeFontSize;
+  roundness!: BadgeRoundness;
   appearance!: BadgeAppearance;
   strings = getTranslations();
   loadError: string | undefined;
@@ -32,7 +33,8 @@ export default class SimpleBadgePlugin extends Plugin {
     }
     this.active = true;
     this.fontSize = new BadgeFontSize(this.presets, this.app.workspace.containerEl.win);
-    const appearance = this.appearance = new BadgeAppearance(this.fontSize.value);
+    this.roundness = new BadgeRoundness(this.presets, this.app.workspace.containerEl.win);
+    const appearance = this.appearance = new BadgeAppearance(this.fontSize.value, this.roundness.value);
     const attachWindows = () => {
       if (!this.active) return;
       appearance.attach(this.app.workspace.containerEl.ownerDocument);
@@ -45,6 +47,10 @@ export default class SimpleBadgePlugin extends Plugin {
     this.register(this.fontSize.subscribe(() => {
       appearance.set(this.fontSize.value);
       if (this.fontSize.error) new Notice(this.fontSize.error);
+    }));
+    this.register(this.roundness.subscribe(() => {
+      appearance.setRoundness(this.roundness.value);
+      if (this.roundness.error) new Notice(this.roundness.error);
     }));
     this.register(() => appearance.dispose());
     this.settingsTab = new SimpleBadgeSettingTab(this.app, this);
@@ -112,6 +118,7 @@ export default class SimpleBadgePlugin extends Plugin {
   onunload(): void {
     this.active = false;
     this.fontSize?.dispose();
+    this.roundness?.dispose();
     this.insertModal?.close();
     for (const modal of this.presetModals) modal.close();
     this.settingsTab?.hide();

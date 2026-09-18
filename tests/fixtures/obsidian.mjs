@@ -10,6 +10,7 @@ export class Element {
     this.style = { setProperty() {} };
   }
   get isConnected() { return this.root || !!this.parent?.isConnected; }
+  get valueAsNumber() { return this.value === "" ? NaN : Number(this.value); }
   createEl(_tag, options) {
     const child = new Element(options);
     child.parent = this;
@@ -21,6 +22,7 @@ export class Element {
   createSpan(options) { return this.createEl("span", options); }
   setText(text) { this.text = text; }
   setAttr(key, value) { this.attrs[key] = value; }
+  addClass(cls) { this.classes.add(cls); }
   toggleClass(cls, enabled) { if (enabled) this.classes.add(cls); else this.classes.delete(cls); }
   addEventListener(event, listener) { this.listeners[event] = listener; }
   remove() {
@@ -35,16 +37,24 @@ export class Element {
 class Control {
   constructor(parent, type) {
     this.element = parent.createEl(type);
-    this.inputEl = this.sliderEl = this.buttonEl = this.element;
+    this.inputEl = this.sliderEl = this.buttonEl = this.selectEl = this.element;
   }
-  setValue(value) { this.element.value = value; return this; }
+  setValue(value) {
+    this.element.value = value;
+    // Obsidian can call onChange from setValue; renders must not count as user input.
+    this.element.change?.(value);
+    return this;
+  }
   setDisabled(value) { this.element.disabled = value; return this; }
   setLimits() { return this; }
+  setInstant() { return this; }
+  setDisplayFormat(format) { this.element.displayFormat = format; return this; }
+  addOption() { return this; }
   setIcon() { return this; }
   setTooltip() { return this; }
   setButtonText(text) { this.element.text = text; return this; }
   setCta() { return this; }
-  onChange(callback) { this.element.listeners.change = callback; return this; }
+  onChange(callback) { this.element.change = callback; return this; }
   onClick(callback) { this.element.listeners.click = callback; return this; }
 }
 
@@ -61,6 +71,7 @@ export class Setting {
   setDesc(desc) { this.descEl.setText(desc); return this; }
   setHeading() { return this; }
   addSlider(render) { render(new Control(this.controlEl, "input")); return this; }
+  addDropdown(render) { render(new Control(this.controlEl, "select")); return this; }
   addText(render) { render(new Control(this.controlEl, "input")); return this; }
   addExtraButton(render) { render(new Control(this.controlEl, "button")); return this; }
   addButton(render) { render(new Control(this.controlEl, "button")); return this; }

@@ -19,8 +19,11 @@ export interface BadgePreset extends Badge { id: string }
 export const DEFAULT_BADGE_FONT_SIZE_PERCENT = 72;
 export const MIN_BADGE_FONT_SIZE_PERCENT = 50;
 export const MAX_BADGE_FONT_SIZE_PERCENT = 150;
-export interface BadgeSettings { badgeFontSizePercent: number }
-export interface PresetData { schemaVersion: 3; presets: BadgePreset[]; settings: BadgeSettings }
+// null preserves the original fixed 4px corners; numbers opt into relative rounding.
+export type BadgeCornerRoundness = number | null;
+export const DEFAULT_CUSTOM_ROUNDNESS_PERCENT = 40;
+export interface BadgeSettings { badgeFontSizePercent: number; badgeCornerRoundnessPercent: BadgeCornerRoundness }
+export interface PresetData { schemaVersion: 4; presets: BadgePreset[]; settings: BadgeSettings }
 export interface BadgeDraft extends Badge { save: boolean; customColorInput?: string }
 export interface InsertSession {
   presets: BadgePreset[];
@@ -33,13 +36,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function defaultSettings(): BadgeSettings {
-  return { badgeFontSizePercent: DEFAULT_BADGE_FONT_SIZE_PERCENT };
+  return { badgeFontSizePercent: DEFAULT_BADGE_FONT_SIZE_PERCENT, badgeCornerRoundnessPercent: null };
 }
 
 export function validateFontSizePercent(value: unknown, strings = getTranslations()): number {
   if (typeof value !== "number" || !Number.isInteger(value)
     || value < MIN_BADGE_FONT_SIZE_PERCENT || value > MAX_BADGE_FONT_SIZE_PERCENT) {
     throw new Error(strings.invalidFontSize);
+  }
+  return value;
+}
+
+export function validateCornerRoundness(value: unknown, strings = getTranslations()): BadgeCornerRoundness {
+  if (value === null) return null;
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > 100) {
+    throw new Error(strings.invalidCornerRoundness);
   }
   return value;
 }
@@ -91,7 +102,7 @@ export function createId(): string {
 }
 
 export function defaultData(strings: Translations = getTranslations()): PresetData {
-  return { schemaVersion: 3, settings: defaultSettings(), presets: [
+  return { schemaVersion: 4, settings: defaultSettings(), presets: [
     { id: "default-blue", color: "blue", text: strings.defaults.blue },
     { id: "default-green", color: "green", text: strings.defaults.green },
     { id: "default-purple", color: "purple", text: strings.defaults.purple },
@@ -101,12 +112,16 @@ export function defaultData(strings: Translations = getTranslations()): PresetDa
 
 export function decodeData(raw: unknown, strings = getTranslations()): PresetData {
   if (raw == null) return defaultData(strings);
-  if (!isRecord(raw) || (raw.schemaVersion !== 1 && raw.schemaVersion !== 2 && raw.schemaVersion !== 3) || !Array.isArray(raw.presets)) {
+  if (!isRecord(raw) || ![1, 2, 3, 4].includes(raw.schemaVersion as number) || !Array.isArray(raw.presets)) {
     throw new Error(strings.unsupportedConfig);
   }
-  const settings = raw.schemaVersion === 3
-    ? { badgeFontSizePercent: validateFontSizePercent(isRecord(raw.settings) ? raw.settings.badgeFontSizePercent : undefined, strings) }
-    : defaultSettings();
+  const settings = defaultSettings();
+  if (raw.schemaVersion === 3 || raw.schemaVersion === 4) {
+    settings.badgeFontSizePercent = validateFontSizePercent(isRecord(raw.settings) ? raw.settings.badgeFontSizePercent : undefined, strings);
+  }
+  if (raw.schemaVersion === 4) {
+    settings.badgeCornerRoundnessPercent = validateCornerRoundness(isRecord(raw.settings) ? raw.settings.badgeCornerRoundnessPercent : undefined, strings);
+  }
   const presets: BadgePreset[] = [];
   const entries: unknown[] = raw.presets;
   for (const entry of entries) {
@@ -119,7 +134,7 @@ export function decodeData(raw: unknown, strings = getTranslations()): PresetDat
     }
     presets.push({ id: entry.id, ...badge });
   }
-  return { schemaVersion: 3, presets, settings };
+  return { schemaVersion: 4, presets, settings };
 }
 
 // Selections are snapshots: later preset edits cannot silently change this batch.

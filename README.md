@@ -2,13 +2,13 @@
 
 English | [简体中文](README.zh-CN.md)
 
-Right-click in an Obsidian Markdown editor and choose **Insert Badge** to preview, create, and insert multiple text badges in the order you select them. Current version: **0.6.1**.
+Right-click in an Obsidian Markdown editor and choose **Insert Badge** to preview, create, and insert multiple text badges in the order you select them. Current version: **1.0.0**.
 
 ```html
 <span class="badge badge-red">Important</span> <span class="badge badge-green">Done</span>
 ```
 
-Choose from eight theme colors or pick any custom HEX color. A global font size ratio scales badges and their padding; rounded corners, borders, and the 15% tinted background remain fixed. No separate CSS snippet is required.
+Choose from eight theme colors or pick any custom HEX color. A global font size ratio scales badges and their padding; corner roundness is configurable, while borders and the 15% tinted background remain fixed. No separate CSS snippet is required.
 
 The interface follows Obsidian's language: Chinese language settings use Simplified Chinese, and all other languages use English. This includes menus, dialogs, settings, color names, status messages, and accessibility labels.
 
@@ -27,6 +27,14 @@ Changes immediately update rendered badges in the main window and popouts, witho
 The ratio is not stored in individual presets or spans, and changing it never rewrites notes. Badges copied to another vault use that vault's ratio.
 
 Version 0.6.1 fixes duplicate font-size previews after preset changes. Editing, reordering, adding, or deleting presets now clears the previous preview and status nodes, keeping a single preview row.
+
+## Adjust corner roundness
+
+Find **Badge corner roundness** directly below the font-size setting. **Original (4px)** is the default and preserves the pre-upgrade appearance. Choose **Custom** to use the slider or enter a whole percentage from **0% to 100%**: 0% is square, 100% is a pill, and intermediate values scale with badge text. Switching to Custom starts at 40%; reset restores the original 4px corners.
+
+Font size and roundness share one live preview below the controls. Roundness is saved per vault and applies to presets, creation and editing, insertion and import previews, and existing or new badges in body text, headings, and Canvas, including popout windows. Repeated preset operations or reopening settings keep one preview row. Invalid input retains the last valid shape; failed saves restore the last successfully saved value.
+
+Roundness is not written into individual presets or spans and never rewrites notes. Badges copied into another vault use that vault's settings. Newer settings search supports `corner`, `radius`, `roundness`, and `shape`.
 
 ## Choose a color
 
@@ -81,9 +89,9 @@ On Obsidian 1.13.0 and later, settings search can find the add-preset and span-i
 
 On first use, the plugin provides four example presets in the interface language: Information (blue), Done (green), Note (purple), and Important (red) in English; 信息、完成、备注、重要 in Chinese. You can edit or delete all of them. Deliberately clearing the list does not restore the defaults. Existing saved presets are never translated automatically.
 
-Presets and the font size ratio are stored in `.obsidian/plugins/simple-badge/data.json` in the current vault. If a preset save fails, an error is displayed and your input is retained so you can retry. If the configuration is invalid or uses an unsupported version, the plugin asks you to check the file instead of overwriting it with defaults.
+Presets, font size, and corner roundness are stored in `.obsidian/plugins/simple-badge/data.json` in the current vault. If a preset save fails, an error is displayed and your input is retained so you can retry. If the configuration is invalid or uses an unsupported version, the plugin asks you to check the file instead of overwriting it with defaults.
 
-Versions 0.6.0 and later read configuration versions 1, 2, and 3. Versions 1 and 2 receive the default 72% ratio while retaining preset IDs, text, colors, and order. The next successful font size change or preset save writes version 3; loading alone does not rewrite the file. Version 0.5.0 and earlier cannot read version 3 data, so keep a backup of `data.json` if you intend to downgrade.
+Version 1.0.0 reads configuration versions 1–4. Versions 1 and 2 receive the default 72% font ratio; version 3 keeps its existing ratio. All older configurations retain the original 4px corners and preset IDs, text, colors, and order. The first successful appearance change or preset save writes version 4; loading alone does not rewrite the file. Version 0.6.1 and earlier cannot read version 4 data, so back up `data.json` before upgrading if you intend to downgrade.
 
 Editing or deleting a preset does not change spans already inserted in notes or silently change selected text and colors in an insertion dialog that is already open. The global font size ratio updates how all of these badges are displayed.
 
@@ -136,7 +144,7 @@ pnpm test
 
 `pnpm dev` watches the source and rebuilds it. `pnpm typecheck` runs type checking separately. Watch mode does not automatically copy files to the vault or reload the plugin.
 
-The 52 automated tests cover selection order and snapshots, HTML escaping, batch editor transactions, preset management, concurrent saves and failure recovery, language handling, malformed configuration rejection, and Canvas insertion targets. Color tests cover HEX normalization and invalid input, all eight translated theme colors, mixed HTML output, safe DOM previews, equivalent-color duplicates, version 1 migration, and version 2 save failures. Import tests cover HTML round trips and entity decoding, malformed input, localized errors, input limits, duplicate counts, ordered batch saves, reload persistence, unchanged imports, and concurrent or failed imports. `pnpm lint` runs the official Obsidian ESLint recommended rules with zero warnings allowed.
+The 61 automated tests cover selection order and snapshots, HTML escaping, batch editor transactions, preset management, concurrent saves and failure recovery, language handling, malformed configuration rejection, and Canvas insertion targets. Color tests cover HEX normalization and invalid input, all eight translated theme colors, mixed HTML output, safe DOM previews, equivalent-color duplicates, version 1 migration, and version 2 save failures. Import tests cover HTML round trips and entity decoding, malformed input, localized errors, input limits, duplicate counts, ordered batch saves, reload persistence, unchanged imports, and concurrent or failed imports. `pnpm lint` runs the official Obsidian ESLint recommended rules with zero warnings allowed.
 
 The following behaviors have also been verified in the Develop vault on Windows with Obsidian **1.13.7**: numbered selection, renumbering after deselection, mixed insertion of temporary and saved badges, HTML escaping, undo and redo of a complete batch, preset management in settings, preset persistence after re-enabling the plugin, a single context-menu entry after reloading, and preserving a selection while choosing a new insertion position after the note changes. Examples remain in `Simple Badge 示例.md` in that test vault.
 
@@ -153,6 +161,8 @@ Version 0.5.0 was checked in the English interface on Obsidian 1.13.7 for the ne
 Version 0.6.0 was checked in the English interface on Obsidian 1.13.7 with Prism 3.8.0: settings search, the separate settings window, 50% and 150% limits, invalid input, reset, persistence after re-enabling, preset and insertion previews, existing and newly inserted badges in Reading view and Live Preview, relative heading sizes, and live updates in a Canvas popout. Verification restored 72% and removed the temporary note. Existing preset entries were unchanged; `Demo for SimpleBadge.md`, `test.md`, and `test-canvas.canvas` matched their pre-test hashes.
 
 Version 0.6.1 was checked in the same Obsidian 1.13.7 / Prism 3.8.0 separate settings window: consecutive moves and saving a preset kept one font-size preview row; font-size changes and reopening settings also worked. The original order and 90% ratio were restored, and `data.json` plus the three existing test documents matched their pre-test hashes. All four new settings lifecycle regression tests detect failures in the original 0.6.0 source.
+
+Version 1.0.0 was checked on Obsidian 1.13.7 / Prism 3.8.0 for original corners, custom 40%, square 0%, pill 100%, invalid 101% input, reset, reopening settings, persistence after re-enabling, existing document badges, and a single preview after preset reordering. Verification restored original corners and the 90% font ratio. Preset IDs, content, colors, and order were preserved; all three existing test documents matched their pre-test hashes. Configuration migrated to version 4. Automated tests additionally cover cross-control refreshes, save rollback, older configurations, and multi-window CSS restoration.
 
 Font size tests cover integer limits, delayed migration from configuration versions 1/2 to 3, shared preset and appearance writes, debouncing, stale save completions, rollback and retry, flushing on disposal, and window style restoration. Validation messages are tested in both English and Chinese.
 
@@ -179,7 +189,7 @@ pnpm run deploy "D:/path/to/vault"
 
 Enable **Simple Badge** in Obsidian under **Settings → Community plugins**. After updating, disable and re-enable the plugin to reload it.
 
-Alternatively, extract the three files from `simple-badge-0.6.1.zip` into `.obsidian/plugins/simple-badge/` in the target vault, then enable the plugin. Preserve the existing `data.json` when updating.
+Alternatively, extract the three files from `simple-badge-1.0.0.zip` into `.obsidian/plugins/simple-badge/` in the target vault, then enable the plugin. Preserve the existing `data.json` when updating.
 
 The deployment script copies only the three plugin files. It does not modify preset data, the enabled-plugin list, or other plugin settings.
 
@@ -198,10 +208,11 @@ The deployment script copies only the three plugin files. It does not modify pre
 - `src/preset-store.ts`: Preset operations and serialized persistence.
 - `src/badge.ts`: Safe DOM previews and batch editor transactions.
 - `src/appearance.ts`: Immediate font size preview, debounced saves, rollback, and per-window CSS variables.
-- `src/font-size-control.ts`: Shared percentage slider, numeric input, reset, and status messages.
+- `src/appearance-control.ts`: Shared appearance sliders, numeric inputs, corner mode, reset, single preview, and status messages.
 - `styles.css`: Global badge styles and plugin interface layout.
 - `tests/core.test.mjs`: Core behavior tests.
 - `tests/appearance.test.mjs`: Font size validation, migration, concurrent saves, rollback, and window lifecycle tests.
+- `tests/roundness.test.mjs`: Corner validation, v1–v3 migration, concurrent writes, rollback, reset, and window style cleanup.
 - `tests/settings.test.mjs`: Preview regression tests for reused setting rows, repeated preset changes, cleanup callbacks, reopening, and legacy settings.
 - `tests/import.test.mjs`: Span parsing and batch import tests, included in the same test command.
 - `scripts/deploy.mjs`: Copies build artifacts to a specified vault.

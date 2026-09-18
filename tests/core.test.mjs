@@ -2,6 +2,7 @@ import test from "node:test";
 import "./import.test.mjs";
 import "./appearance.test.mjs";
 import "./settings.test.mjs";
+import "./roundness.test.mjs";
 import assert from "node:assert/strict";
 import { BADGE_COLORS, OrderedBadges, colorLabel, decodeData, defaultData, normalizeBadge, normalizeHexColor, sameBadge, serializeBadges } from "../src/model.ts";
 import { PresetStore } from "../src/preset-store.ts";
@@ -12,7 +13,7 @@ import { captureEditorTarget } from "../src/editor-target.ts";
 const a = { id: "a", text: "重要", color: "red" };
 const b = { id: "b", text: "信息", color: "blue" };
 const c = { id: "c", text: "完成", color: "green" };
-const empty = () => ({ schemaVersion: 3, presets: [], settings: { badgeFontSizePercent: 72 } });
+const empty = () => ({ schemaVersion: 4, presets: [], settings: { badgeFontSizePercent: 72, badgeCornerRoundnessPercent: null } });
 const makeStore = async (raw = null) => {
   let persisted = structuredClone(raw);
   const store = new PresetStore({ load: async () => persisted, save: async data => { persisted = structuredClone(data); } });
@@ -115,7 +116,7 @@ test("failed current-version saves preserve the old configuration and allow retr
   assert.deepEqual(store.presets, [a]);
   fail = false;
   await store.add({ text: "Custom", color: "#ABC" });
-  assert.equal(persisted.schemaVersion, 3);
+  assert.equal(persisted.schemaVersion, 4);
   assert.equal(persisted.presets[1].color, "#aabbcc");
 });
 
@@ -235,7 +236,7 @@ test("first launch gets defaults, deliberately empty presets stay empty", () => 
 });
 
 test("invalid or future configuration is rejected instead of silently overwritten", async () => {
-  for (const raw of [{}, { schemaVersion: 4, presets: [] }, { schemaVersion: 1, presets: [a, a] },
+  for (const raw of [{}, { schemaVersion: 5, presets: [] }, { schemaVersion: 1, presets: [a, a] },
     { schemaVersion: 1, presets: [a, { ...a, id: "different" }] }, { schemaVersion: 1, presets: [{ ...a, text: "" }] }]) {
     let saves = 0;
     const store = new PresetStore({ load: async () => raw, save: async () => { saves++; } });
@@ -365,7 +366,7 @@ test("validation and preset errors use the same language as their UI", async () 
       [{ text: "A\nB", color: "blue" }, strings.singleLine],
       [{ text: "A", color: "invalid" }, strings.invalidColor],
     ]) assert.throws(() => normalizeBadge(badge, strings), { message });
-    assert.throws(() => decodeData({ schemaVersion: 4, presets: [] }, strings), { message: strings.unsupportedConfig });
+    assert.throws(() => decodeData({ schemaVersion: 5, presets: [] }, strings), { message: strings.unsupportedConfig });
     assert.throws(() => decodeData({ schemaVersion: 1, presets: [{ ...a, id: "" }] }, strings), { message: strings.invalidId });
     assert.throws(() => decodeData({ schemaVersion: 1, presets: [a, a] }, strings), { message: strings.duplicateConfig });
     const store = new PresetStore({ load: async () => ({ schemaVersion: 1, presets: [a, b] }), save: async () => {} }, strings);

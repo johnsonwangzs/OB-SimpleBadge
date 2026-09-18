@@ -1,4 +1,4 @@
-import { createId, decodeData, defaultSettings, normalizeBadge, planPresetImport, sameBadge, validateFontSizePercent, type Badge, type BadgePreset, type PresetData } from "./model";
+import { createId, decodeData, defaultSettings, normalizeBadge, planPresetImport, sameBadge, validateFontSizePercent, validateCornerRoundness, type Badge, type BadgeCornerRoundness, type BadgePreset, type PresetData } from "./model";
 import { getTranslations } from "./i18n";
 
 interface PresetStorage {
@@ -10,7 +10,7 @@ export interface ImportResult { added: number; skipped: number }
 type StoreChange = "presets" | "appearance";
 
 export class PresetStore {
-  private data: PresetData = { schemaVersion: 3, presets: [], settings: defaultSettings() };
+  private data: PresetData = { schemaVersion: 4, presets: [], settings: defaultSettings() };
   private loaded = false;
   private tail: Promise<void> = Promise.resolve();
   private listeners = new Set<(change: StoreChange) => void>();
@@ -24,10 +24,16 @@ export class PresetStore {
 
   get presets(): BadgePreset[] { return this.data.presets.map(item => ({ ...item })); }
   get badgeFontSizePercent(): number { return this.data.settings.badgeFontSizePercent; }
+  get badgeCornerRoundnessPercent(): BadgeCornerRoundness { return this.data.settings.badgeCornerRoundnessPercent; }
 
   async setBadgeFontSizePercent(value: number): Promise<void> {
     const percent = validateFontSizePercent(value, this.strings);
     await this.mutate(draft => { draft.settings.badgeFontSizePercent = percent; }, true, "appearance");
+  }
+
+  async setBadgeCornerRoundnessPercent(value: BadgeCornerRoundness): Promise<void> {
+    const percent = validateCornerRoundness(value, this.strings);
+    await this.mutate(draft => { draft.settings.badgeCornerRoundnessPercent = percent; }, true, "appearance");
   }
 
   subscribe(listener: (change: StoreChange) => void): () => void {
@@ -90,9 +96,10 @@ export class PresetStore {
     // Serialize writes so a slow save cannot overwrite a newer change.
     const operation = this.tail.then(async () => {
       if (!this.loaded) throw new Error(this.strings.configNotLoaded);
-      const draft: PresetData = { schemaVersion: 3, presets: this.presets, settings: { ...this.data.settings } };
+      const draft: PresetData = { schemaVersion: 4, presets: this.presets, settings: { ...this.data.settings } };
       const result = change(draft);
       if (skipUnchanged && draft.settings.badgeFontSizePercent === this.badgeFontSizePercent
+        && draft.settings.badgeCornerRoundnessPercent === this.badgeCornerRoundnessPercent
         && draft.presets.length === this.data.presets.length
         && draft.presets.every((preset, index) => preset.id === this.data.presets[index].id
           && sameBadge(preset, this.data.presets[index]))) return result;

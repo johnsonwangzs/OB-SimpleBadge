@@ -1,10 +1,11 @@
 import { Modal, PluginSettingTab, requireApiVersion, Setting, type App, type SettingDefinitionItem } from "obsidian";
 import { renderBadge } from "./badge";
 import { BadgeForm } from "./badge-form";
-import { colorLabel, type Badge, type BadgePreset } from "./model";
+import { colorLabel, DEFAULT_BADGE_FONT_SIZE_PERCENT, MIN_BADGE_FONT_SIZE_PERCENT, MAX_BADGE_FONT_SIZE_PERCENT,
+  validateFontSizePercent, validateCornerRoundness, type Badge, type BadgePreset } from "./model";
 import type SimpleBadgePlugin from "./main";
 import type { Translations } from "./i18n";
-import { FontSizeControl } from "./font-size-control";
+import { AppearanceControl } from "./appearance-control";
 
 export class PresetEditModal extends Modal {
   private form: BadgeForm | undefined;
@@ -29,17 +30,19 @@ export class SimpleBadgeSettingTab extends PluginSettingTab {
   private visible = false;
   private status = "";
   private statusIsError = false;
-  private fontSizeControls = new Set<FontSizeControl>();
+  private appearanceControls = new Set<AppearanceControl<number> | AppearanceControl<number | null>>();
   constructor(app: App, private readonly owner: SimpleBadgePlugin) {
     super(app, owner);
     // Keep the search index current even while this tab is hidden.
     owner.register(owner.presets.subscribe(change => { if (change === "presets") this.refresh(); }));
-    owner.register(owner.fontSize.subscribe(() => {
-      for (const control of this.fontSizeControls) {
+    const refreshAppearance = () => {
+      for (const control of this.appearanceControls) {
         if (control.element.isConnected) control.refresh();
-        else { control.destroy(); this.fontSizeControls.delete(control); }
+        else { control.destroy(); this.appearanceControls.delete(control); }
       }
-    }));
+    };
+    owner.register(owner.fontSize.subscribe(refreshAppearance));
+    owner.register(owner.roundness.subscribe(refreshAppearance));
   }
 
   // Obsidian 1.13+ renders and indexes these definitions instead of display().
@@ -51,7 +54,11 @@ export class SimpleBadgeSettingTab extends PluginSettingTab {
         items: [{
           name: strings.badgeFontSize, desc: strings.badgeFontSizeDescription,
           aliases: ["badge", "font", "size", "scale", "%", "字号", "比例"],
-          render: setting => this.renderFontSize(setting),
+          render: setting => this.renderAppearance(setting, "fontSize"),
+        }, {
+          name: strings.badgeCornerRoundness, desc: strings.badgeCornerRoundnessDescription,
+          aliases: ["badge", "shape", "corner", "radius", "roundness", "pill", "圆角", "形状", "胶囊"],
+          render: setting => this.renderAppearance(setting, "roundness"),
         }],
       },
       {
@@ -86,16 +93,18 @@ export class SimpleBadgeSettingTab extends PluginSettingTab {
   }
   hide(): void {
     this.visible = false;
-    for (const control of this.fontSizeControls) control.destroy();
-    this.fontSizeControls.clear();
+    for (const control of this.appearanceControls) control.destroy();
+    this.appearanceControls.clear();
     void this.owner.fontSize.flush();
+    void this.owner.roundness.flush();
   }
 
   private renderLegacy(): void {
     const strings = this.owner.strings;
     this.containerEl.empty();
     new Setting(this.containerEl).setName(strings.appearance).setHeading();
-    this.renderFontSize(new Setting(this.containerEl).setName(strings.badgeFontSize).setDesc(strings.badgeFontSizeDescription));
+    this.renderAppearance(new Setting(this.containerEl).setName(strings.badgeFontSize).setDesc(strings.badgeFontSizeDescription), "fontSize");
+    this.renderAppearance(new Setting(this.containerEl).setName(strings.badgeCornerRoundness).setDesc(strings.badgeCornerRoundnessDescription), "roundness");
     new Setting(this.containerEl).setName(strings.presetBadges).setHeading();
     this.renderAdd(new Setting(this.containerEl).setName(strings.addPreset).setDesc(strings.presetDescription));
     this.renderImport(new Setting(this.containerEl).setName(strings.importPresets).setDesc(strings.importDescription));
@@ -112,20 +121,34 @@ export class SimpleBadgeSettingTab extends PluginSettingTab {
       .setDisabled(this.busy || !!this.owner.loadError).onClick(() => this.owner.openPresetEditor()));
   }
 
-  private renderFontSize(setting: Setting): () => void {
+  private renderAppearance(setting: Setting, kind: "fontSize" | "roundness"): () => void {
     // Obsidian's separate settings window is not a workspace leaf.
     this.owner.appearance.attach(setting.settingEl.ownerDocument);
-    for (const control of this.fontSizeControls) {
+    for (const control of this.appearanceControls) {
       if (!control.element.isConnected || control.element === setting.settingEl) {
         control.destroy();
-        this.fontSizeControls.delete(control);
+        this.appearanceControls.delete(control);
       }
     }
-    const control = new FontSizeControl(setting, this.owner.fontSize, this.owner.strings, !!this.owner.loadError);
-    this.fontSizeControls.add(control);
+    const strings = this.owner.strings;
+    const disabled = !!this.owner.loadError;
+    const control = kind === "fontSize"
+      ? new AppearanceControl(setting, this.owner.fontSize, strings, {
+        className: "simple-badge-font-size", min: MIN_BADGE_FONT_SIZE_PERCENT, max: MAX_BADGE_FONT_SIZE_PERCENT,
+        defaultValue: DEFAULT_BADGE_FONT_SIZE_PERCENT, validate: value => validateFontSizePercent(value, strings),
+        label: strings.badgeFontSize, inputLabel: strings.badgeFontSizeInput, resetLabel: strings.resetFontSize,
+        savedMessage: strings.fontSizeSaved,
+      }, disabled)
+      : new AppearanceControl(setting, this.owner.roundness, strings, {
+        className: "simple-badge-roundness", min: 0, max: 100,
+        defaultValue: null, validate: value => validateCornerRoundness(value, strings),
+        label: strings.badgeCornerRoundness, inputLabel: strings.badgeCornerRoundnessInput, resetLabel: strings.resetCornerRoundness,
+        savedMessage: strings.cornerRoundnessSaved, originalCorners: true, preview: true,
+      }, disabled);
+    this.appearanceControls.add(control);
     return () => {
       control.destroy();
-      this.fontSizeControls.delete(control);
+      this.appearanceControls.delete(control);
     };
   }
 

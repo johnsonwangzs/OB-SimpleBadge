@@ -6,7 +6,7 @@ import { PresetStore } from "../src/preset-store.ts";
 import { getTranslations } from "../src/i18n.ts";
 
 const presets = [{ id: "custom", text: "Old badge", color: "#aabbcc" }, { id: "red", text: "旧预设", color: "red" }];
-const currentData = (percent = 72) => ({ schemaVersion: 3, presets: structuredClone(presets), settings: { badgeFontSizePercent: percent } });
+const currentData = (percent = 72) => ({ schemaVersion: 4, presets: structuredClone(presets), settings: { badgeFontSizePercent: percent, badgeCornerRoundnessPercent: null } });
 const createControl = store => new BadgeFontSize(store, {
   setTimeout: (...args) => setTimeout(...args), clearTimeout: (...args) => clearTimeout(...args),
 });
