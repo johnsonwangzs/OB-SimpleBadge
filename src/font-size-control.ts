@@ -10,6 +10,7 @@ export class FontSizeControl {
   private input!: HTMLInputElement;
   private slider!: SliderComponent;
   private status: HTMLElement;
+  private preview: HTMLElement;
   private lastValue: number;
   private invalid = false;
   private showValidation = false;
@@ -21,9 +22,9 @@ export class FontSizeControl {
     setting.setClass("simple-badge-font-size");
     const statusId = `simple-badge-font-size-status-${createId()}`;
     this.status = setting.infoEl.createDiv({ cls: "simple-badge-message", attr: { id: statusId, role: "status", "aria-live": "polite" } });
-    const preview = setting.infoEl.createDiv({ cls: "simple-badge-font-size-preview simple-badge-preview", attr: { "aria-label": strings.preview } });
-    renderBadge(preview, { text: strings.defaults.blue, color: "blue" });
-    renderBadge(preview, { text: strings.defaults.red, color: "#e67e22" });
+    this.preview = setting.infoEl.createDiv({ cls: "simple-badge-font-size-preview simple-badge-preview", attr: { "aria-label": strings.preview } });
+    renderBadge(this.preview, { text: strings.defaults.blue, color: "blue" });
+    renderBadge(this.preview, { text: strings.defaults.red, color: "#e67e22" });
     setting.addSlider(slider => {
       this.slider = slider.setLimits(MIN_BADGE_FONT_SIZE_PERCENT, MAX_BADGE_FONT_SIZE_PERCENT, 1)
         .setValue(fontSize.value).setDisabled(disabled).onChange(value => this.use(value));
@@ -72,6 +73,12 @@ export class FontSizeControl {
     const error = this.invalid && this.showValidation ? this.strings.invalidFontSize : this.fontSize.error;
     this.status.setText(error || (this.fontSize.saving ? this.strings.saving : this.interacted ? this.strings.fontSizeSaved : ""));
     this.status.toggleClass("is-error", !!error);
+  }
+
+  destroy(): void {
+    // The host clears its controls, but retains custom children of infoEl on rerender.
+    this.status.remove();
+    this.preview.remove();
   }
 
   private use(value: number): void {

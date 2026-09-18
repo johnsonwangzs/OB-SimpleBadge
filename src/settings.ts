@@ -37,7 +37,7 @@ export class SimpleBadgeSettingTab extends PluginSettingTab {
     owner.register(owner.fontSize.subscribe(() => {
       for (const control of this.fontSizeControls) {
         if (control.element.isConnected) control.refresh();
-        else this.fontSizeControls.delete(control);
+        else { control.destroy(); this.fontSizeControls.delete(control); }
       }
     }));
   }
@@ -84,7 +84,12 @@ export class SimpleBadgeSettingTab extends PluginSettingTab {
     this.visible = true;
     this.renderLegacy();
   }
-  hide(): void { this.visible = false; this.fontSizeControls.clear(); void this.owner.fontSize.flush(); }
+  hide(): void {
+    this.visible = false;
+    for (const control of this.fontSizeControls) control.destroy();
+    this.fontSizeControls.clear();
+    void this.owner.fontSize.flush();
+  }
 
   private renderLegacy(): void {
     const strings = this.owner.strings;
@@ -107,11 +112,21 @@ export class SimpleBadgeSettingTab extends PluginSettingTab {
       .setDisabled(this.busy || !!this.owner.loadError).onClick(() => this.owner.openPresetEditor()));
   }
 
-  private renderFontSize(setting: Setting): void {
+  private renderFontSize(setting: Setting): () => void {
     // Obsidian's separate settings window is not a workspace leaf.
     this.owner.appearance.attach(setting.settingEl.ownerDocument);
-    for (const control of this.fontSizeControls) if (!control.element.isConnected) this.fontSizeControls.delete(control);
-    this.fontSizeControls.add(new FontSizeControl(setting, this.owner.fontSize, this.owner.strings, !!this.owner.loadError));
+    for (const control of this.fontSizeControls) {
+      if (!control.element.isConnected || control.element === setting.settingEl) {
+        control.destroy();
+        this.fontSizeControls.delete(control);
+      }
+    }
+    const control = new FontSizeControl(setting, this.owner.fontSize, this.owner.strings, !!this.owner.loadError);
+    this.fontSizeControls.add(control);
+    return () => {
+      control.destroy();
+      this.fontSizeControls.delete(control);
+    };
   }
 
   private renderImport(setting: Setting): void {

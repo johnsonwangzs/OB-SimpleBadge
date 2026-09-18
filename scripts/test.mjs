@@ -8,6 +8,7 @@ await mkdir(new URL(".", output), { recursive: true });
 await build({
   entryPoints: [fileURLToPath(new URL("../tests/core.test.mjs", import.meta.url))],
   outfile: fileURLToPath(output), bundle: true, platform: "node", format: "esm", target: "node20",
+  alias: { obsidian: fileURLToPath(new URL("../tests/fixtures/obsidian.mjs", import.meta.url)) },
 });
 const result = spawnSync(process.execPath, ["--test", fileURLToPath(output)], { stdio: "inherit" });
 if (result.error) throw result.error;
